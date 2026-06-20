@@ -25,12 +25,14 @@ import {
   getCategoryInfo,
   parseMoney,
   CASH_COLORS,
-  today
+  today,
+  getCardLastStatementDue,
+  formatAsYouTypeHTML
 } from '../utils';
 
 interface CreditCardsProps {
   state: GlobalState;
-  addCard: (name: string, bank: string, limit: number, cutDay: number, dueDay: number) => void;
+  addCard: (name: string, bank: string, limit: number, cutDay: number, dueDay: number, initialStatement?: number) => void;
   deleteCard: (id: string) => void;
   triggerSettleCard: (cardId: string) => void;
   activeModal: string | null;
@@ -54,6 +56,7 @@ export default function CreditCards({
   const [cardLimit, setCardLimit] = useState('');
   const [cardCut, setCardCut] = useState('5');
   const [cardDue, setCardDue] = useState('25');
+  const [cardInitialStatement, setCardInitialStatement] = useState('');
 
   // Calculates total outstanding charges from expenses and auto-charges on a specific card
   const getCardOwedTotal = (cardId: string) => {
@@ -162,15 +165,17 @@ export default function CreditCards({
     const limit = parseMoney(cardLimit);
     const cut = parseInt(cardCut) || 5;
     const due = parseInt(cardDue) || 25;
+    const initialStatement = parseMoney(cardInitialStatement);
 
     if (!cardName.trim() || limit <= 0) return;
-    addCard(cardName.trim(), cardBank.trim() || 'Issuer bank', limit, cut, due);
+    addCard(cardName.trim(), cardBank.trim() || 'Issuer bank', limit, cut, due, initialStatement);
 
     setCardName('');
     setCardBank('');
     setCardLimit('');
     setCardCut('5');
     setCardDue('25');
+    setCardInitialStatement('');
     setActiveModal(null);
   };
 
@@ -276,12 +281,20 @@ export default function CreditCards({
                   <strong className="text-sm font-extrabold text-stone-800 font-display">{formatPeso(limit, 0)}</strong>
                 </div>
                 <div>
+                  <span className="text-[10px] font-bold text-rose-700 uppercase tracking-wider block mb-0.5">Last Statement Due</span>
+                  <strong className="text-sm font-black text-rose-950 font-display">{formatPeso(getCardLastStatementDue(card, state))}</strong>
+                </div>
+                <div>
                   <span className="text-[10px] font-bold text-stone-400 uppercase tracking-wider block mb-0.5">Current Balance Due</span>
                   <strong className="text-sm font-extrabold text-red-700 font-display">{formatPeso(owedAmt)}</strong>
                 </div>
                 <div>
                   <span className="text-[10px] font-bold text-stone-400 uppercase tracking-wider block mb-0.5">Statement Closing</span>
                   <span className="font-bold text-stone-700 font-display">Day {card.cutDay}</span>
+                </div>
+                <div>
+                  <span className="text-[10px] font-bold text-stone-400 uppercase tracking-wider block mb-0.5">Payment Due Day</span>
+                  <span className="font-bold text-stone-700 font-display">Day {card.dueDay}</span>
                 </div>
                 <div>
                   <span className="text-[10px] font-bold text-stone-400 uppercase tracking-wider block mb-0.5">Due Horizon</span>
@@ -376,8 +389,28 @@ export default function CreditCards({
                     className="w-full text-xs font-black border border-stone-200 rounded-xl p-2.5 bg-stone-100/50 outline-none focus:border-stone-400 text-right font-display text-emerald-800"
                     placeholder="₱ 100,000.00"
                     value={cardLimit}
-                    onChange={e => setCardLimit(e.target.value)}
+                    onChange={e => setCardLimit(formatAsYouTypeHTML(e.target.value))}
+                    onBlur={e => {
+                      const num = parseMoney(e.target.value);
+                      setCardLimit(num > 0 ? formatPeso(num) : '');
+                    }}
                     required
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-extrabold uppercase tracking-wider text-stone-400 font-display">Starting Last Statement Due (₱)</label>
+                  <input 
+                    type="text" 
+                    inputMode="decimal"
+                    className="w-full text-xs font-black border border-stone-200 rounded-xl p-2.5 bg-stone-100/50 outline-none focus:border-stone-400 text-right font-display text-emerald-800"
+                    placeholder="₱ 0.00"
+                    value={cardInitialStatement}
+                    onChange={e => setCardInitialStatement(formatAsYouTypeHTML(e.target.value))}
+                    onBlur={e => {
+                      const num = parseMoney(e.target.value);
+                      setCardInitialStatement(num > 0 ? formatPeso(num) : '');
+                    }}
                   />
                 </div>
 

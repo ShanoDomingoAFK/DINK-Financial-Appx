@@ -80,6 +80,39 @@ export function formatPeso(value: string | number, decimals: number = 2): string
   return (num < 0 ? '−' : '') + '₱ ' + formatted;
 }
 
+export function formatAsYouTypeHTML(value: string): string {
+  // Strip all except digits and single dot
+  let clean = value.replace(/[^\d.]/g, '');
+  const parts = clean.split('.');
+  if (parts.length > 2) {
+    clean = parts[0] + '.' + parts.slice(1).join('');
+  }
+  if (!clean) return '';
+  if (clean === '.') return '₱ .';
+  
+  let integerPart = parts[0];
+  const decimalPart = parts[1];
+  
+  if (integerPart) {
+    if (integerPart.length > 1 && integerPart.startsWith('0')) {
+      integerPart = integerPart.replace(/^0+/, '') || '0';
+    }
+    const intVal = parseInt(integerPart, 10);
+    if (!isNaN(intVal)) {
+      const formattedInt = intVal.toLocaleString('en-US');
+      if (parts.length > 1) {
+        return `₱ ${formattedInt}.${decimalPart}`;
+      }
+      return `₱ ${formattedInt}`;
+    }
+  } else {
+    if (parts.length > 1) {
+      return `₱ .${decimalPart}`;
+    }
+  }
+  return '₱ ' + clean;
+}
+
 export function today(): string {
   return new Date().toISOString().split('T')[0];
 }
@@ -228,6 +261,67 @@ export function getStatementCycleForDate(card: CreditCard, dateStr: string): Sta
   };
 }
 
+export function getCardLastStatementDue(card: CreditCard, state: GlobalState): number {
+  const baseStatement = card.statementBalance || 0;
+  
+  const totalPayments = state.expenses
+    .filter(e => e.type === 'card_payment' && e.cardPaymentCardId === card.id)
+    .reduce((sum, e) => sum + e.amount, 0);
+
+  const cardExpenses = state.expenses.filter(e => e.paymentSourceType === 'card' && e.paymentSourceId === card.id && e.type !== 'card_payment');
+  
+  const recurring = state.amortizations
+    .filter(a => a.recurringCardId === card.id)
+    .map(a => ({
+      desc: `${a.name} Recur Charge`,
+      amount: a.monthlyAmount,
+      date: today().substring(0, 8) + '15',
+      paymentSourceType: 'card' as 'card',
+      paymentSourceId: card.id,
+    }));
+    
+  const allExpenses = [...cardExpenses, ...recurring];
+  
+  const groups: { [key: string]: { statementDate: Date; total: number } } = {};
+  allExpenses.forEach(row => {
+    const cycle = getStatementCycleForDate(card, row.date);
+    const gKey = cycle.key;
+    if (!groups[gKey]) {
+      groups[gKey] = {
+        statementDate: cycle.statementDate,
+        total: 0
+      };
+    }
+    groups[gKey].total += row.amount;
+  });
+  
+  const now = new Date();
+  const todayDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  
+  const closedGroups = Object.values(groups)
+    .filter(g => todayDate >= g.statementDate)
+    .sort((a,b) => b.statementDate.getTime() - a.statementDate.getTime());
+  
+  if (closedGroups.length > 0) {
+    const mostRecentClosedTotal = closedGroups[0].total;
+    const cutoffDateStr = formatISODate(closedGroups[0].statementDate);
+    
+    const paymentsAfterStatementCutoff = state.expenses
+      .filter(e => e.type === 'card_payment' && e.cardPaymentCardId === card.id && e.date >= cutoffDateStr)
+      .reduce((sum, e) => sum + e.amount, 0);
+      
+    // Combine base credit card statement balance with dynamic closed statement total if there are dynamic logs
+    // But since they might overlap or represent different times (base starting balance represents prior statements that are already closed),
+    // let's say the absolute last statement is indeed the dynamic closed one (if it has dynamic transactions),
+    // otherwise the base statement balance (and subtract payments).
+    if (mostRecentClosedTotal > 0) {
+      return Math.max(0, mostRecentClosedTotal - paymentsAfterStatementCutoff);
+    }
+  }
+  
+  return Math.max(0, baseStatement - totalPayments);
+}
+
 export function monthIndex(date: Date): number {
   return date.getFullYear() * 12 + date.getMonth();
 }
@@ -279,8 +373,8 @@ export const INITIAL_STATE: GlobalState = {
     { id: 'e4', desc: 'Annual Pet Vet Immunizations', amount: 2800, date: today().substring(0, 8) + '07', cat: 'pets', via: 'GCash Outlet', paymentSourceType: 'cash', paymentSourceId: 'ca_gcash', earner: 'Joint' }
   ],
   cards: [
-    { id: 'cc1', name: 'BPI Amore Cashback', bank: 'BPI Bank', limit: 80000, statementBalance: 0, outstandingBalance: 4850, cutDay: 28, dueDay: 22, color: '#D94F4F' },
-    { id: 'cc2', name: 'BDO Gold Visa', bank: 'Banco De Oro', limit: 120000, statementBalance: 0, outstandingBalance: 4200, cutDay: 5, dueDay: 25, color: '#C97A0A' }
+    { id: 'cc1', name: 'BPI Amore Cashback', bank: 'BPI Bank', limit: 80000, statementBalance: 4850, outstandingBalance: 4850, cutDay: 28, dueDay: 22, color: '#D94F4F' },
+    { id: 'cc2', name: 'BDO Gold Visa', bank: 'Banco De Oro', limit: 120000, statementBalance: 4200, outstandingBalance: 4200, cutDay: 5, dueDay: 25, color: '#C97A0A' }
   ],
   budgets: [
     { id: 'bg1', cat: 'food', label: 'Food & Groceries', icon: '🛒', limit: 15000 },

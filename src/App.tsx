@@ -20,13 +20,15 @@ import {
   LogOut
 } from 'lucide-react';
 import { GlobalState, ReceivedIncome, Expense, FundTransfer, CreditCard, Budget, Amortization, PartnerDeductions } from './types';
-import { INITIAL_STATE, formatPeso, today, getMonthKey, parseMoney, CASH_COLORS } from './utils';
+import { INITIAL_STATE, formatPeso, today, getMonthKey, parseMoney, CASH_COLORS, formatAsYouTypeHTML } from './utils';
 import Overview from './components/Overview';
 import Transactions from './components/Transactions';
 import CreditCards from './components/CreditCards';
 import BudgetStrategy from './components/BudgetStrategy';
 import IncomeAnalysis from './components/IncomeAnalysis';
 import Login from './components/Login';
+import { supabase, SUPABASE_TABLE, SUPABASE_DOC_ID } from './supabase';
+import SupabaseSync from './components/SupabaseSync';
 
 export default function App() {
   // ─── AUTHENTICATION STATE ───
@@ -63,6 +65,93 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem('dink_finance_state', JSON.stringify(state));
   }, [state]);
+
+  // ─── SUPABASE CLOUD PERSISTENCE ───
+  const [syncStatus, setSyncStatus] = useState<'idle' | 'loading' | 'saving' | 'synced' | 'error' | 'unconfigured' | 'relation_missing'>(() => {
+    return supabase ? 'idle' : 'unconfigured';
+  });
+
+  const fetchFromSupabase = async () => {
+    if (!supabase) return;
+    setSyncStatus('loading');
+    try {
+      const { data, error } = await supabase
+        .from(SUPABASE_TABLE)
+        .select('state')
+        .eq('id', SUPABASE_DOC_ID)
+        .single();
+
+      if (error) {
+        if (error.code === 'PGRST116') {
+          // Record not found (table exists but vacant), let's push local state as initial
+          const { error: upsertError } = await supabase
+            .from(SUPABASE_TABLE)
+            .upsert({ id: SUPABASE_DOC_ID, state: state, updated_at: new Date().toISOString() });
+          if (upsertError) throw upsertError;
+          setSyncStatus('synced');
+        } else {
+          throw error;
+        }
+      } else if (data && data.state) {
+        // Load remote state and preserve schema integrity
+        const parsed = data.state;
+        if (!parsed.transfers) parsed.transfers = [];
+        if (!parsed.monthlyBudgets) parsed.monthlyBudgets = {};
+        if (!parsed.cashAccounts) parsed.cashAccounts = [];
+        setState(parsed);
+        setSyncStatus('synced');
+      }
+    } catch (err: any) {
+      console.error('Supabase fetch error:', err);
+      if (err.message?.includes('relation') || err.message?.includes('does not exist')) {
+        setSyncStatus('relation_missing');
+      } else {
+        setSyncStatus('error');
+      }
+    }
+  };
+
+  const saveToSupabase = async (currentState: GlobalState) => {
+    if (!supabase) return;
+    setSyncStatus('saving');
+    try {
+      const { error } = await supabase
+        .from(SUPABASE_TABLE)
+        .upsert({
+          id: SUPABASE_DOC_ID,
+          state: currentState,
+          updated_at: new Date().toISOString()
+        });
+
+      if (error) throw error;
+      setSyncStatus('synced');
+    } catch (err: any) {
+      console.error('Supabase save error:', err);
+      if (err.message?.includes('relation') || err.message?.includes('does not exist')) {
+        setSyncStatus('relation_missing');
+      } else {
+        setSyncStatus('error');
+      }
+    }
+  };
+
+  // Pull on startup
+  useEffect(() => {
+    if (isUnlocked && supabase) {
+      fetchFromSupabase();
+    }
+  }, [isUnlocked]);
+
+  // Debounced auto-save on state mutation
+  useEffect(() => {
+    if (!isUnlocked || !supabase || syncStatus === 'loading') return;
+
+    const timer = setTimeout(() => {
+      saveToSupabase(state);
+    }, 2000);
+
+    return () => clearTimeout(timer);
+  }, [state, isUnlocked]);
 
   const handleLogActiveSessionOut = () => {
     sessionStorage.removeItem('dink_finance_unlocked');
@@ -217,7 +306,7 @@ export default function App() {
     }));
   };
 
-  const addCard = (name: string, bank: string, limit: number, cutDay: number, dueDay: number) => {
+  const addCard = (name: string, bank: string, limit: number, cutDay: number, dueDay: number, initialStatement: number = 0) => {
     // Basic color selection
     const colors = ['#D94F4F', '#C2740A', '#4F54D4', '#0D9E80', '#A150D4'];
     const colorSelected = colors[state.cards.length % colors.length];
@@ -227,8 +316,8 @@ export default function App() {
       name,
       bank,
       limit,
-      statementBalance: 0,
-      outstandingBalance: 0,
+      statementBalance: initialStatement,
+      outstandingBalance: initialStatement,
       cutDay,
       dueDay,
       color: colorSelected
@@ -553,10 +642,12 @@ export default function App() {
             </button>
           </div>
 
-          <div className="flex items-center gap-1.5 text-xs font-semibold text-emerald-800 bg-emerald-100/60 p-2 rounded-xl border border-emerald-500/10">
-            <CheckCircle size={14} className="text-emerald-600" />
-            <span id="storage-status">Secure Client Storage</span>
-          </div>
+          <SupabaseSync 
+            syncStatus={syncStatus}
+            onPull={fetchFromSupabase}
+            onPush={() => saveToSupabase(state)}
+            localBackupSize={JSON.stringify(state).length}
+          />
         </div>
       </aside>
 
@@ -669,18 +760,21 @@ export default function App() {
                   <input 
                     type="text" 
                     inputMode="decimal"
-                    defaultValue={state.settings.monthlySavingsTarget}
                     className="w-full text-xs font-black border border-stone-200 rounded-xl p-2.5 outline-none font-display focus:border-stone-400 bg-stone-100 text-right text-emerald-800"
-                    ref={el => { if (el) { setTargetValInput(el.value); } }}
-                    onChange={e => setTargetValInput(e.target.value)}
+                    value={targetValInput || (state.settings.monthlySavingsTarget ? formatPeso(state.settings.monthlySavingsTarget) : '')}
+                    onChange={e => setTargetValInput(formatAsYouTypeHTML(e.target.value))}
+                    onBlur={e => {
+                      const num = parseMoney(e.target.value);
+                      setTargetValInput(num > 0 ? formatPeso(num) : '');
+                    }}
                   />
                   <p className="text-[9px] mt-1 text-stone-400 font-semibold leading-relaxed">
                     💡 This target gets compared against combined Cash Pools to highlight the financial shortfall or achievement.
                   </p>
                 </div>
                 <div className="flex gap-2 justify-end pt-2 border-t border-stone-200">
-                  <button onClick={() => setActiveModal(null)} className="btn btn-ghost text-xs">Cancel</button>
-                  <button onClick={() => submitSavingsTargetValue(targetValInput)} className="btn btn-primary text-xs bg-stone-900 hover:bg-stone-800">Save Target</button>
+                  <button onClick={() => { setTargetValInput(''); setActiveModal(null); }} className="btn btn-ghost text-xs">Cancel</button>
+                  <button onClick={() => { submitSavingsTargetValue(targetValInput); setTargetValInput(''); }} className="btn btn-primary text-xs bg-stone-900 hover:bg-stone-800">Save Target</button>
                 </div>
               </div>
             </motion.div>

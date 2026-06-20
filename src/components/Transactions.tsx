@@ -30,7 +30,9 @@ import {
   toDateObject,
   CATEGORIES,
   parseMoney,
-  getAmortizationStatus
+  getAmortizationStatus,
+  getCardLastStatementDue,
+  formatAsYouTypeHTML
 } from '../utils';
 
 interface TransactionsProps {
@@ -217,10 +219,11 @@ export default function Transactions({
     }
     if (activeModal === 'settleCard') {
       const defaultCard = settleCardId || (state.cards[0]?.id || '');
-      const defaultOwed = defaultCard ? getCardOwedTotal(defaultCard) : 0;
+      const cardObj = state.cards.find(c => c.id === defaultCard);
+      const defaultOwed = cardObj ? getCardLastStatementDue(cardObj, state) : 0;
       setSettleForm({
         cardId: defaultCard,
-        amount: defaultOwed.toString(),
+        amount: defaultOwed > 0 ? formatAsYouTypeHTML(defaultOwed.toString()) : '',
         date: today(),
         via: state.cashAccounts[0] ? `cash:${state.cashAccounts[0].id}` : '',
         notes: ''
@@ -612,7 +615,14 @@ export default function Transactions({
                         className="w-full text-xs font-black border border-stone-200 rounded-xl p-2.5 bg-stone-100/50 outline-none focus:border-stone-400 text-right font-display text-emerald-800"
                         placeholder="₱ 0.00"
                         value={incForm.amount}
-                        onChange={e => setIncForm(prev => ({ ...prev, amount: e.target.value }))}
+                        onChange={e => {
+                          const val = e.target.value;
+                          setIncForm(prev => ({ ...prev, amount: formatAsYouTypeHTML(val) }));
+                        }}
+                        onBlur={e => {
+                          const num = parseMoney(e.target.value);
+                          setIncForm(prev => ({ ...prev, amount: num > 0 ? formatPeso(num) : '' }));
+                        }}
                         required
                       />
                     </div>
@@ -702,7 +712,14 @@ export default function Transactions({
                         className="w-full text-xs font-black border border-stone-200 rounded-xl p-2.5 bg-stone-100/50 outline-none focus:border-stone-400 text-right font-display text-red-800"
                         placeholder="₱ 0.00"
                         value={expForm.amount}
-                        onChange={e => setExpForm(prev => ({ ...prev, amount: e.target.value }))}
+                        onChange={e => {
+                          const val = e.target.value;
+                          setExpForm(prev => ({ ...prev, amount: formatAsYouTypeHTML(val) }));
+                        }}
+                        onBlur={e => {
+                          const num = parseMoney(e.target.value);
+                          setExpForm(prev => ({ ...prev, amount: num > 0 ? formatPeso(num) : '' }));
+                        }}
                         required
                       />
                     </div>
@@ -804,7 +821,14 @@ export default function Transactions({
                         className="w-full text-xs font-black border border-stone-200 rounded-xl p-2.5 bg-stone-100/50 outline-none focus:border-stone-400 text-right font-display text-indigo-800"
                         placeholder="₱ 0.00"
                         value={transferForm.amount}
-                        onChange={e => setTransferForm(prev => ({ ...prev, amount: e.target.value }))}
+                        onChange={e => {
+                          const val = e.target.value;
+                          setTransferForm(prev => ({ ...prev, amount: formatAsYouTypeHTML(val) }));
+                        }}
+                        onBlur={e => {
+                          const num = parseMoney(e.target.value);
+                          setTransferForm(prev => ({ ...prev, amount: num > 0 ? formatPeso(num) : '' }));
+                        }}
                         required
                       />
                     </div>
@@ -874,17 +898,19 @@ export default function Transactions({
                       value={settleForm.cardId}
                       onChange={e => {
                         const val = e.target.value;
+                        const cardObj = state.cards.find(c => c.id === val);
+                        const owedAmt = cardObj ? getCardLastStatementDue(cardObj, state) : 0;
                         setSettleForm(prev => ({
                           ...prev,
                           cardId: val,
-                          amount: getCardOwedTotal(val).toString()
+                          amount: owedAmt > 0 ? formatAsYouTypeHTML(owedAmt.toString()) : ''
                         }));
                       }}
                       required
                     >
                       <option value="" disabled>Select Credit Card Account</option>
                       {state.cards.map(c => (
-                        <option key={c.id} value={c.id}>{c.name} · Owed: {formatPeso(getCardOwedTotal(c.id))}</option>
+                        <option key={c.id} value={c.id}>{c.name} · Statement Due: {formatPeso(getCardLastStatementDue(c, state))}</option>
                       ))}
                     </select>
                   </div>
@@ -913,7 +939,14 @@ export default function Transactions({
                         className="w-full text-xs font-black border border-stone-200 rounded-xl p-2.5 bg-stone-100/50 outline-none focus:border-stone-400 text-right font-display text-emerald-800"
                         placeholder="₱ 0.00"
                         value={settleForm.amount}
-                        onChange={e => setSettleForm(prev => ({ ...prev, amount: e.target.value }))}
+                        onChange={e => {
+                          const val = e.target.value;
+                          setSettleForm(prev => ({ ...prev, amount: formatAsYouTypeHTML(val) }));
+                        }}
+                        onBlur={e => {
+                          const num = parseMoney(e.target.value);
+                          setSettleForm(prev => ({ ...prev, amount: num > 0 ? formatPeso(num) : '' }));
+                        }}
                         required
                       />
                     </div>

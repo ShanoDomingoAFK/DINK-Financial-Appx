@@ -28,7 +28,8 @@ import {
   getAmortizationStatus, 
   parseMoney,
   CATEGORIES,
-  formatDisplayDate
+  formatDisplayDate,
+  formatAsYouTypeHTML
 } from '../utils';
 
 interface BudgetStrategyProps {
@@ -514,7 +515,11 @@ export default function BudgetStrategy({
                     className="w-full text-xs font-black border border-stone-200 rounded-xl p-2.5 bg-stone-100/50 outline-none focus:border-stone-400 text-right font-display text-emerald-855"
                     placeholder="₱ 15000.00"
                     value={newBgtLimit}
-                    onChange={e => setNewBgtLimit(e.target.value)}
+                    onChange={e => setNewBgtLimit(formatAsYouTypeHTML(e.target.value))}
+                    onBlur={e => {
+                      const num = parseMoney(e.target.value);
+                      setNewBgtLimit(num > 0 ? formatPeso(num) : '');
+                    }}
                     required
                   />
                 </div>
@@ -582,7 +587,11 @@ export default function BudgetStrategy({
                       className="w-full text-xs font-black border border-stone-250 rounded-xl p-2.5 bg-stone-100/50 outline-none focus:border-stone-400 text-right font-display text-red-800"
                       placeholder="₱ 18500.00"
                       value={amortAmt}
-                      onChange={e => setAmortAmt(e.target.value)}
+                      onChange={e => setAmortAmt(formatAsYouTypeHTML(e.target.value))}
+                      onBlur={e => {
+                        const num = parseMoney(e.target.value);
+                        setAmortAmt(num > 0 ? formatPeso(num) : '');
+                      }}
                       required
                     />
                   </div>
