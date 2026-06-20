@@ -1,0 +1,8 @@
+{
+  "name": "DINK Finance Tracker",
+  "description": "A sophisticated financial dashboard for Double Income No Kids (DINKs) designed to track dual salaries, progressive deductions, cash pools, revolving credit statements, and shared budget caps.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
