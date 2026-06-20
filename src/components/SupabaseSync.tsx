@@ -11,7 +11,9 @@ import {
   Check,
   X,
   ArrowUpRight,
-  HelpCircle
+  HelpCircle,
+  ChevronDown,
+  ChevronRight
 } from 'lucide-react';
 import { supabase, SUPABASE_TABLE, SUPABASE_DOC_ID } from '../supabase';
 
@@ -25,6 +27,37 @@ interface SupabaseSyncProps {
 export default function SupabaseSync({ syncStatus, onPull, onPush, localBackupSize }: SupabaseSyncProps) {
   const [showModal, setShowModal] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useState<boolean>(() => {
+    const saved = localStorage.getItem('dink_finance_sync_collapsed');
+    return saved !== 'false'; // default to true (minimized)
+  });
+
+  const toggleCollapsed = () => {
+    setIsCollapsed(prev => {
+      const newVal = !prev;
+      localStorage.setItem('dink_finance_sync_collapsed', String(newVal));
+      return newVal;
+    });
+  };
+
+  const getMiniStatusBadge = () => {
+    switch (syncStatus) {
+      case 'unconfigured':
+        return <span className="text-[8px] bg-stone-300 text-stone-700 px-1.5 py-0.5 rounded font-black uppercase tracking-wider leading-none">Offline</span>;
+      case 'relation_missing':
+        return <span className="text-[8px] bg-red-100 text-red-800 px-1.5 py-0.5 rounded font-black uppercase tracking-wider leading-none">Setup</span>;
+      case 'loading':
+        return <span className="text-[8px] bg-amber-100 text-amber-805 px-1.5 py-0.5 rounded font-black uppercase tracking-wider leading-none animate-pulse">Loading</span>;
+      case 'saving':
+        return <span className="text-[8px] bg-[#E1F5FE] text-sky-800 px-1.5 py-0.5 rounded font-black uppercase tracking-wider leading-none animate-pulse">Saving</span>;
+      case 'synced':
+      case 'idle':
+        return <span className="text-[8px] bg-emerald-100 text-emerald-800 px-1.5 py-0.5 rounded font-black uppercase tracking-wider leading-none">Synced</span>;
+      case 'error':
+      default:
+        return <span className="text-[8px] bg-red-105 bg-red-100 text-red-850 text-red-800 px-1.5 py-0.5 rounded font-black uppercase tracking-wider leading-none">Error</span>;
+    }
+  };
 
   const sqlCode = `-- 1. Create the table to store your uniform DINK finance state
 CREATE TABLE IF NOT EXISTS ${SUPABASE_TABLE} (
@@ -181,8 +214,18 @@ ALTER TABLE ${SUPABASE_TABLE} DISABLE ROW LEVEL SECURITY;
   return (
     <>
       <div className="space-y-1.5">
-        <span className="text-[10px] font-extrabold uppercase tracking-widest text-[#8E8779] font-display">Database Synchronization</span>
-        {renderStatus()}
+        <button 
+          onClick={toggleCollapsed}
+          className="w-full flex items-center justify-between text-[10px] font-extrabold uppercase tracking-widest text-[#8E8779] font-display hover:text-stone-700 transition cursor-pointer py-1"
+        >
+          <span className="flex items-center gap-1.5">
+            <Database size={11} className="text-[#8E8779]" />
+            <span>Database Sync</span>
+            {getMiniStatusBadge()}
+          </span>
+          {isCollapsed ? <ChevronRight size={12} className="text-[#8E8779]" /> : <ChevronDown size={12} className="text-[#8E8779]" />}
+        </button>
+        {!isCollapsed && renderStatus()}
       </div>
 
       {showModal && (

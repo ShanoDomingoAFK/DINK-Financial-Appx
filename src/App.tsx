@@ -26,15 +26,78 @@ import Transactions from './components/Transactions';
 import CreditCards from './components/CreditCards';
 import BudgetStrategy from './components/BudgetStrategy';
 import IncomeAnalysis from './components/IncomeAnalysis';
-import Login from './components/Login';
+import Login, { AVATAR_PRESETS } from './components/Login';
 import { supabase, SUPABASE_TABLE, SUPABASE_DOC_ID } from './supabase';
 import SupabaseSync from './components/SupabaseSync';
+
+// Helper to render partner avatar elegantly
+const renderPartnerAvatarInApp = (pic?: string, name?: string, sizeClass: string = "w-10 h-10 text-md") => {
+  const isUrl = pic && (pic.startsWith('http') || pic.startsWith('data:image'));
+  if (isUrl) {
+    return (
+      <img 
+        src={pic} 
+        alt={name} 
+        referrerPolicy="no-referrer"
+        className={`${sizeClass} rounded-full object-cover border-2 border-stone-300 shadow-sm shrink-0`} 
+      />
+    );
+  }
+  const preset = AVATAR_PRESETS.find(p => p.id === pic);
+  return (
+    <div className={`rounded-full ${sizeClass} flex items-center justify-center font-bold text-white border-2 border-stone-300/40 shadow-inner bg-gradient-to-tr shrink-0 ${preset?.gradient || 'from-stone-400 to-stone-600'}`}>
+      {preset ? preset.emoji : (name ? name.substring(0, 2).toUpperCase() : '👤')}
+    </div>
+  );
+};
 
 export default function App() {
   // ─── AUTHENTICATION STATE ───
   const [isUnlocked, setIsUnlocked] = useState<boolean>(() => {
     return sessionStorage.getItem('dink_finance_unlocked') === 'true';
   });
+  const [user, setUser] = useState<any>(null);
+
+  // ─── PROFILE EDIT MODAL STATES ───
+  const [editYouName, setEditYouName] = useState('');
+  const [editPartnerName, setEditPartnerName] = useState('');
+  const [editYouPic, setEditYouPic] = useState('av_man1');
+  const [editPartnerPic, setEditPartnerPic] = useState('av_woman1');
+  const [editYouCustomUrl, setEditYouCustomUrl] = useState('');
+  const [editPartnerCustomUrl, setEditPartnerCustomUrl] = useState('');
+  const [showEditYouCustom, setShowEditYouCustom] = useState(false);
+  const [showEditPartnerCustom, setShowEditPartnerCustom] = useState(false);
+
+  // Submit profile edit changes
+  const saveUpdatedProfiles = async () => {
+    const finalYouPic = showEditYouCustom ? editYouCustomUrl.trim() : editYouPic;
+    const finalPartnerPic = showEditPartnerCustom ? editPartnerCustomUrl.trim() : editPartnerPic;
+
+    const updated = {
+      you: editYouName.trim() || 'Aiden',
+      partner: editPartnerName.trim() || 'Chloe',
+      youPic: finalYouPic || 'av_man1',
+      partnerPic: finalPartnerPic || 'av_woman1'
+    };
+
+    setState(prev => ({
+      ...prev,
+      partnerNames: updated
+    }));
+
+    // Save to user metadata in active Supabase Auth too!
+    if (supabase && user) {
+      try {
+        await supabase.auth.updateUser({
+          data: { partnerNames: updated }
+        });
+      } catch (e) {
+        console.warn('Could not sync update to auth metadata, state table will still save:', e);
+      }
+    }
+
+    setActiveModal(null);
+  };
 
   // ─── LOCAL STORAGE PERSISTENCE ───
   const [state, setState] = useState<GlobalState>(() => {
@@ -71,14 +134,19 @@ export default function App() {
     return supabase ? 'idle' : 'unconfigured';
   });
 
-  const fetchFromSupabase = async () => {
+  const getDocId = (currentUser = user) => {
+    return currentUser ? `user_${currentUser.id}` : SUPABASE_DOC_ID;
+  };
+
+  const fetchFromSupabase = async (targetUser = user) => {
     if (!supabase) return;
     setSyncStatus('loading');
+    const docId = getDocId(targetUser);
     try {
       const { data, error } = await supabase
         .from(SUPABASE_TABLE)
         .select('state')
-        .eq('id', SUPABASE_DOC_ID)
+        .eq('id', docId)
         .single();
 
       if (error) {
@@ -86,7 +154,7 @@ export default function App() {
           // Record not found (table exists but vacant), let's push local state as initial
           const { error: upsertError } = await supabase
             .from(SUPABASE_TABLE)
-            .upsert({ id: SUPABASE_DOC_ID, state: state, updated_at: new Date().toISOString() });
+            .upsert({ id: docId, state: state, updated_at: new Date().toISOString() });
           if (upsertError) throw upsertError;
           setSyncStatus('synced');
         } else {
@@ -111,14 +179,15 @@ export default function App() {
     }
   };
 
-  const saveToSupabase = async (currentState: GlobalState) => {
+  const saveToSupabase = async (currentState: GlobalState, targetUser = user) => {
     if (!supabase) return;
     setSyncStatus('saving');
+    const docId = getDocId(targetUser);
     try {
       const { error } = await supabase
         .from(SUPABASE_TABLE)
         .upsert({
-          id: SUPABASE_DOC_ID,
+          id: docId,
           state: currentState,
           updated_at: new Date().toISOString()
         });
@@ -135,10 +204,39 @@ export default function App() {
     }
   };
 
+  // ─── AUTHENTIC SESSION SYNCHRONIZER ───
+  useEffect(() => {
+    if (!supabase) return;
+
+    // Direct check active session on loading
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session?.user) {
+        setUser(session.user);
+        setIsUnlocked(true);
+        sessionStorage.setItem('dink_finance_unlocked', 'true');
+        // Initial fetch with active session on reload
+        fetchFromSupabase(session.user);
+      }
+    });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (session?.user) {
+        setUser(session.user);
+        setIsUnlocked(true);
+        sessionStorage.setItem('dink_finance_unlocked', 'true');
+        fetchFromSupabase(session.user);
+      } else if (event === 'SIGNED_OUT') {
+        setUser(null);
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
   // Pull on startup
   useEffect(() => {
     if (isUnlocked && supabase) {
-      fetchFromSupabase();
+      fetchFromSupabase(user);
     }
   }, [isUnlocked]);
 
@@ -147,15 +245,19 @@ export default function App() {
     if (!isUnlocked || !supabase || syncStatus === 'loading') return;
 
     const timer = setTimeout(() => {
-      saveToSupabase(state);
+      saveToSupabase(state, user);
     }, 2000);
 
     return () => clearTimeout(timer);
-  }, [state, isUnlocked]);
+  }, [state, isUnlocked, user]);
 
-  const handleLogActiveSessionOut = () => {
+  const handleLogActiveSessionOut = async () => {
     sessionStorage.removeItem('dink_finance_unlocked');
     setIsUnlocked(false);
+    if (supabase) {
+      await supabase.auth.signOut();
+    }
+    setUser(null);
   };
 
   // Dynamic Cash Pool balances total
@@ -540,9 +642,20 @@ export default function App() {
     return (
       <Login 
         partnerNames={state.partnerNames} 
-        onUnlock={() => { 
+        onUnlock={(partnerData) => { 
           setIsUnlocked(true); 
           sessionStorage.setItem('dink_finance_unlocked', 'true'); 
+          if (partnerData) {
+            setState(prev => ({
+              ...prev,
+              partnerNames: {
+                you: partnerData.you,
+                partner: partnerData.partner,
+                youPic: partnerData.youPic,
+                partnerPic: partnerData.partnerPic
+              }
+            }));
+          }
         }} 
       />
     );
@@ -585,6 +698,50 @@ export default function App() {
             <div>
               <h1 className="font-extrabold font-display text-md tracking-tight leading-tight text-stone-900">Finance Tracker</h1>
               <p className="text-[10px] text-stone-500 font-extrabold uppercase leading-none font-display tracking-widest mt-0.5">DINK Dual Engine</p>
+            </div>
+          </div>
+
+          {/* DINK Household Profiles Card (Interactive) */}
+          <div className="bg-[#FAF8F5]/85 border border-stone-300/70 rounded-2xl p-3 flex flex-col gap-2 shadow-xs group">
+            <div className="flex items-center gap-2.5">
+              <div className="flex relative shrink-0">
+                {renderPartnerAvatarInApp(state.partnerNames.youPic, state.partnerNames.you, "w-8 h-8 text-xs")}
+                <div className="ml-[-12px] relative z-10">
+                  {renderPartnerAvatarInApp(state.partnerNames.partnerPic, state.partnerNames.partner, "w-8 h-8 text-xs")}
+                </div>
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="text-[9px] text-[#8E8779] font-extrabold uppercase font-display tracking-wider leading-none">DINK Household</div>
+                <div className="text-[11px] font-black text-stone-900 font-display truncate leading-tight mt-0.5">
+                  {state.partnerNames.you} & {state.partnerNames.partner}
+                </div>
+                {user ? (
+                  <div className="text-[8px] text-teal-800 font-bold truncate flex items-center gap-0.5 leading-none mt-0.5">
+                    <span className="w-1 h-1 rounded-full bg-teal-500 inline-block animate-pulse"></span>
+                    {user.email}
+                  </div>
+                ) : (
+                  <div className="text-[8px] text-stone-400 font-semibold leading-none mt-0.5">Offline Sandbox mode</div>
+                )}
+              </div>
+              <button 
+                onClick={() => {
+                  setEditYouName(state.partnerNames.you);
+                  setEditPartnerName(state.partnerNames.partner);
+                  setEditYouPic(state.partnerNames.youPic || 'av_man1');
+                  setEditPartnerPic(state.partnerNames.partnerPic || 'av_woman1');
+                  setShowEditYouCustom(state.partnerNames.youPic?.startsWith('http') || false);
+                  setShowEditPartnerCustom(state.partnerNames.partnerPic?.startsWith('http') || false);
+                  if (state.partnerNames.youPic?.startsWith('http')) setEditYouCustomUrl(state.partnerNames.youPic);
+                  if (state.partnerNames.partnerPic?.startsWith('http')) setEditPartnerCustomUrl(state.partnerNames.partnerPic);
+                  
+                  setActiveModal('editProfile');
+                }}
+                className="p-1.5 bg-[#EAE4D8] hover:bg-[#DDD8CE] text-stone-600 hover:text-stone-950 rounded-lg transition shrink-0 opacity-0 group-hover:opacity-100 focus:opacity-100"
+                title="Edit Partners Profiles & Avatars"
+              >
+                <Users size={12} />
+              </button>
             </div>
           </div>
 
@@ -833,6 +990,142 @@ export default function App() {
                 <div className="flex gap-2 justify-end pt-3 border-t border-stone-200">
                   <button onClick={() => setActiveModal(null)} className="btn btn-ghost text-xs">Cancel</button>
                   <button onClick={submitNewCashPool} className="btn btn-primary text-xs bg-stone-900 hover:bg-stone-800">Create Pool</button>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+
+        {activeModal === 'editProfile' && (
+          <div className="fixed inset-0 bg-stone-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="bg-stone-50 border border-stone-200 rounded-[32px] p-6 shadow-2xl w-full max-w-sm max-h-[85vh] overflow-y-auto"
+            >
+              <div className="flex justify-between items-center mb-4 pb-2 border-b border-stone-200">
+                <div className="flex items-center gap-1.5">
+                  <Users className="text-[#0D9E80]" size={16} />
+                  <h3 className="text-xs font-extrabold uppercase font-display tracking-widest text-stone-605 text-stone-600">Household Profiles</h3>
+                </div>
+                <button onClick={() => setActiveModal(null)} className="text-stone-400 hover:text-stone-600 text-xl font-bold p-1">
+                  &times;
+                </button>
+              </div>
+
+              <div className="space-y-4">
+                {/* PARTNER 1 (YOU) */}
+                <div className="bg-[#FAF8F5] p-3 rounded-2xl border border-stone-200 space-y-2">
+                  <span className="text-[9px] font-extrabold uppercase tracking-widest text-[#0D9E80] font-display">Partner 1 (You)</span>
+                  <div className="space-y-1 text-xs">
+                    <label className="text-[8px] font-black text-stone-400 uppercase tracking-wider">Your Name</label>
+                    <input 
+                      type="text"
+                      className="w-full text-xs font-semibold border border-stone-200 rounded-xl p-2 focus:border-stone-400 outline-none bg-white"
+                      value={editYouName}
+                      onChange={e => setEditYouName(e.target.value)}
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <div className="flex justify-between items-center text-xs">
+                      <label className="text-[8px] font-black text-stone-400 uppercase tracking-wider">Select Avatar</label>
+                      <button 
+                        type="button" 
+                        onClick={() => setShowEditYouCustom(!showEditYouCustom)}
+                        className="text-[8px] text-teal-850 font-bold hover:underline"
+                      >
+                        {showEditYouCustom ? 'Preset list' : 'Custom photo link'}
+                      </button>
+                    </div>
+
+                    {showEditYouCustom ? (
+                      <input 
+                        type="url"
+                        className="w-full text-[10px] border border-stone-200 rounded-xl p-2 focus:border-stone-400 outline-none bg-white font-mono"
+                        placeholder="https://..."
+                        value={editYouCustomUrl}
+                        onChange={e => setEditYouCustomUrl(e.target.value)}
+                      />
+                    ) : (
+                      <div className="grid grid-cols-4 gap-1.5 pt-1">
+                        {AVATAR_PRESETS.map(preset => {
+                          const isSel = editYouPic === preset.id;
+                          return (
+                            <button
+                              key={preset.id}
+                              type="button"
+                              onClick={() => setEditYouPic(preset.id)}
+                              className={`p-1 rounded-xl border flex flex-col items-center justify-center transition ${isSel ? 'bg-emerald-100/60 border-emerald-500/40' : 'bg-white border-stone-200 hover:bg-stone-50'}`}
+                            >
+                              <span className="text-lg leading-none">{preset.emoji}</span>
+                              <span className="text-[7px] text-stone-400 truncate w-full text-center leading-none mt-1">{preset.label}</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* PARTNER 2 */}
+                <div className="bg-[#FAF8F5] p-3 rounded-2xl border border-stone-200 space-y-2">
+                  <span className="text-[9px] font-extrabold uppercase tracking-widest text-[#4F54D4] font-display">Partner 2</span>
+                  <div className="space-y-1 text-xs">
+                    <label className="text-[8px] font-black text-stone-400 uppercase tracking-wider">Partner Name</label>
+                    <input 
+                      type="text"
+                      className="w-full text-xs font-semibold border border-stone-200 rounded-xl p-2 focus:border-stone-400 outline-none bg-white"
+                      value={editPartnerName}
+                      onChange={e => setEditPartnerName(e.target.value)}
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <div className="flex justify-between items-center text-xs">
+                      <label className="text-[8px] font-black text-stone-400 uppercase tracking-wider">Select Avatar</label>
+                      <button 
+                        type="button" 
+                        onClick={() => setShowEditPartnerCustom(!showEditPartnerCustom)}
+                        className="text-[8px] text-teal-850 font-bold hover:underline"
+                      >
+                        {showEditPartnerCustom ? 'Preset list' : 'Custom photo link'}
+                      </button>
+                    </div>
+
+                    {showEditPartnerCustom ? (
+                      <input 
+                        type="url"
+                        className="w-full text-[10px] border border-stone-200 rounded-xl p-2 focus:border-stone-400 outline-none bg-white font-mono"
+                        placeholder="https://..."
+                        value={editPartnerCustomUrl}
+                        onChange={e => setEditPartnerCustomUrl(e.target.value)}
+                      />
+                    ) : (
+                      <div className="grid grid-cols-4 gap-1.5 pt-1">
+                        {AVATAR_PRESETS.map(preset => {
+                          const isSel = editPartnerPic === preset.id;
+                          return (
+                            <button
+                              key={preset.id}
+                              type="button"
+                              onClick={() => setEditPartnerPic(preset.id)}
+                              className={`p-1 rounded-xl border flex flex-col items-center justify-center transition ${isSel ? 'bg-[#4F54D4]/10 border-[#4F54D4]/30' : 'bg-white border-stone-200 hover:bg-stone-50'}`}
+                            >
+                              <span className="text-lg leading-none">{preset.emoji}</span>
+                              <span className="text-[7px] text-stone-400 truncate w-full text-center leading-none mt-1">{preset.label}</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div className="flex gap-2 justify-end pt-3 border-t border-stone-250">
+                  <button onClick={() => setActiveModal(null)} className="btn btn-ghost text-xs">Cancel</button>
+                  <button onClick={saveUpdatedProfiles} className="btn btn-primary text-xs bg-stone-900 hover:bg-stone-800 text-white font-bold px-4 py-2 rounded-xl shadow-xs cursor-pointer">Save Profiles</button>
                 </div>
               </div>
             </motion.div>

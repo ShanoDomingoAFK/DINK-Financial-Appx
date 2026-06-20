@@ -95,6 +95,8 @@ export interface PartnerDeductions {
 export interface PartnerNames {
   you: string;
   partner: string;
+  youPic?: string; // Avatar URL or preset id
+  partnerPic?: string; // Avatar URL or preset id
 }
 
 export interface Salaries {

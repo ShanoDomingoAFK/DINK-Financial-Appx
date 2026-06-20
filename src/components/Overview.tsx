@@ -28,6 +28,28 @@ import {
   getAmortizationStatus,
   getAmortizationStatus as getAmortStatus
 } from '../utils';
+import { AVATAR_PRESETS } from './Login';
+
+// Helper to render partner avatar elegantly
+const renderOverviewAvatar = (pic?: string, name?: string, sizeClass: string = "w-10 h-10 text-md") => {
+  const isUrl = pic && (pic.startsWith('http') || pic.startsWith('data:image'));
+  if (isUrl) {
+    return (
+      <img 
+        src={pic} 
+        alt={name} 
+        referrerPolicy="no-referrer"
+        className={`${sizeClass} rounded-full object-cover border-2 border-stone-300 shadow-md shrink-0`} 
+      />
+    );
+  }
+  const preset = AVATAR_PRESETS.find(p => p.id === pic);
+  return (
+    <div className={`rounded-full ${sizeClass} flex items-center justify-center font-bold text-white border-2 border-stone-300/40 shadow-inner bg-gradient-to-tr shrink-0 ${preset?.gradient || 'from-stone-400 to-stone-600'}`}>
+      {preset ? preset.emoji : (name ? name.substring(0, 2).toUpperCase() : '👤')}
+    </div>
+  );
+};
 
 interface OverviewProps {
   state: GlobalState;
@@ -264,13 +286,21 @@ export default function Overview({ state, onAdjustTarget, onAddCashAccount }: Ov
     <div className="space-y-8">
       {/* Dynamic Greeting */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold font-display text-stone-900 tracking-tight">
-            Hi, {state.partnerNames.you} & {state.partnerNames.partner} 💑
-          </h1>
-          <p className="text-stone-500 font-medium text-sm mt-1">
-            DINK overall household ledger profile and liquid security buffer
-          </p>
+        <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+          <div className="flex relative shrink-0">
+            {renderOverviewAvatar(state.partnerNames.youPic, state.partnerNames.you, "w-12 h-12 text-lg")}
+            <div className="ml-[-16px] relative z-10">
+              {renderOverviewAvatar(state.partnerNames.partnerPic, state.partnerNames.partner, "w-12 h-12 text-lg")}
+            </div>
+          </div>
+          <div>
+            <h1 className="text-2xl sm:text-3xl font-extrabold font-display text-stone-900 tracking-tight">
+              Hi, {state.partnerNames.you} & {state.partnerNames.partner} 💑
+            </h1>
+            <p className="text-stone-500 font-medium text-xs sm:text-sm mt-0.5">
+              DINK overall household ledger profile and liquid security buffer
+            </p>
+          </div>
         </div>
         <div className="flex items-center gap-2 text-xs bg-stone-200/50 text-stone-700 px-3 py-1.5 rounded-full font-bold self-start md:self-auto font-display">
           <span className="w-2.5 h-2.5 bg-emerald-600 rounded-full animate-pulse"></span>
