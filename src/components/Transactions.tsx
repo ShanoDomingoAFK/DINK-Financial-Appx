@@ -375,6 +375,42 @@ export default function Transactions({
         </div>
       </div>
 
+      {/* Overall Summary Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="bg-stone-50 border border-stone-200/80 rounded-2xl p-5 shadow-sm">
+          <div className="flex justify-between items-start">
+            <h3 className="text-xs font-bold uppercase tracking-wider text-stone-500 font-display">Combined Gross Salary</h3>
+            <div className="p-1 px-2 rounded-md bg-stone-200/50 text-xs font-bold text-stone-700 font-display">Monthly Base</div>
+          </div>
+          <div className="text-2xl font-extrabold text-stone-900 mt-3 font-display tracking-tight">
+            {formatPeso(state.salaries.you + state.salaries.partner)}
+          </div>
+          <p className="text-xs text-stone-400 font-semibold mt-2">
+            Prior to taxation, contributions, and extras
+          </p>
+        </div>
+
+        <div className="bg-stone-50 border border-stone-200/80 rounded-2xl p-5 shadow-sm">
+          <h3 className="text-xs font-bold uppercase tracking-wider text-stone-500 font-display">Inbound Logged Revenue</h3>
+          <div className="text-2xl font-extrabold text-emerald-700 mt-3 font-display tracking-tight">
+            {formatPeso(state.receivedIncome.reduce((sum, item) => sum + item.amount, 0))}
+          </div>
+          <p className="text-xs text-stone-400 font-semibold mt-2">
+            {state.receivedIncome.length} incoming positions recorded
+          </p>
+        </div>
+
+        <div className="bg-stone-50 border border-stone-200/80 rounded-2xl p-5 shadow-sm">
+          <h3 className="text-xs font-bold uppercase tracking-wider text-stone-500 font-display">Dynamic Paid Expenses</h3>
+          <div className="text-2xl font-extrabold text-red-700 mt-3 font-display tracking-tight">
+            {formatPeso(state.expenses.reduce((sum, item) => sum + item.amount, 0))}
+          </div>
+          <p className="text-xs text-stone-400 font-semibold mt-2">
+            {state.expenses.length} distinct allocations recorded
+          </p>
+        </div>
+      </div>
+
       {/* Structured Ledger Filters */}
       <div className="bg-stone-50 border border-stone-200 rounded-2xl p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 items-center">
         <div className="relative">

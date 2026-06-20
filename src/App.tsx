@@ -569,6 +569,13 @@ export default function App() {
     }));
   };
 
+  const deleteCashAccount = (id: string) => {
+    setState(prev => ({
+      ...prev,
+      cashAccounts: prev.cashAccounts.filter(a => a.id !== id)
+    }));
+  };
+
   // Adjust savings goal
   const [targetValInput, setTargetValInput] = useState('');
   const submitSavingsTargetValue = (val: string) => {
@@ -795,7 +802,7 @@ export default function App() {
               onClick={handleLogActiveSessionOut}
               className="w-full bg-[#E3DCD0] hover:bg-[#DDD8CE] text-stone-700 hover:text-stone-900 font-bold text-[10px] py-2 px-2.5 rounded-lg border border-stone-300/60 transition inline-flex items-center justify-center gap-1.5 font-display uppercase tracking-wider shadow-sm cursor-pointer"
             >
-              <Lock size={11} /> Lock Workspace
+              <LogOut size={11} /> Log Out
             </button>
           </div>
 
@@ -831,6 +838,7 @@ export default function App() {
                 state={state} 
                 onAdjustTarget={() => setActiveModal('savingsTarget')}
                 onAddCashAccount={() => setActiveModal('addCashAccount')}
+                onDeleteCashAccount={deleteCashAccount}
               />
             )}
 

@@ -14,7 +14,9 @@ import {
   AlertCircle,
   CheckCircle,
   HelpCircle,
-  ArrowRight
+  ArrowRight,
+  Plus,
+  Trash2
 } from 'lucide-react';
 import { GlobalState, ReceivedIncome, Expense } from '../types';
 import { 
@@ -55,9 +57,10 @@ interface OverviewProps {
   state: GlobalState;
   onAdjustTarget: () => void;
   onAddCashAccount: () => void;
+  onDeleteCashAccount: (id: string) => void;
 }
 
-export default function Overview({ state, onAdjustTarget, onAddCashAccount }: OverviewProps) {
+export default function Overview({ state, onAdjustTarget, onAddCashAccount, onDeleteCashAccount }: OverviewProps) {
   const [detailModal, setDetailModal] = useState<string | null>(null);
 
   // 1. Calculations
@@ -310,40 +313,7 @@ export default function Overview({ state, onAdjustTarget, onAddCashAccount }: Ov
 
       {/* Core Summary Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-stone-50 border border-stone-200/80 rounded-2xl p-5 shadow-sm">
-          <div className="flex justify-between items-start">
-            <h3 className="text-xs font-bold uppercase tracking-wider text-stone-500 font-display">Combined Gross Salary</h3>
-            <div className="p-1 px-2 rounded-md bg-stone-200/50 text-xs font-bold text-stone-700 font-display">Monthly Base</div>
-          </div>
-          <div className="text-2xl font-extrabold text-stone-900 mt-3 font-display tracking-tight">
-            {formatPeso(state.salaries.you + state.salaries.partner)}
-          </div>
-          <p className="text-xs text-stone-400 font-semibold mt-2">
-            Prior to taxation, contributions, and extras
-          </p>
-        </div>
-
-        <div className="bg-stone-50 border border-stone-200/80 rounded-2xl p-5 shadow-sm">
-          <h3 className="text-xs font-bold uppercase tracking-wider text-stone-500 font-display">Inbound Logged Revenue</h3>
-          <div className="text-2xl font-extrabold text-emerald-700 mt-3 font-display tracking-tight">
-            {formatPeso(totalIncome)}
-          </div>
-          <p className="text-xs text-stone-400 font-semibold mt-2">
-            {state.receivedIncome.length} incoming positions recorded
-          </p>
-        </div>
-
-        <div className="bg-stone-50 border border-stone-200/80 rounded-2xl p-5 shadow-sm">
-          <h3 className="text-xs font-bold uppercase tracking-wider text-stone-500 font-display">Dynamic Paid Expenses</h3>
-          <div className="text-2xl font-extrabold text-red-700 mt-3 font-display tracking-tight">
-            {formatPeso(totalExpenses)}
-          </div>
-          <p className="text-xs text-stone-400 font-semibold mt-2">
-            {state.expenses.length} distinct allocations recorded
-          </p>
-        </div>
-
-        <div className="bg-stone-50 border border-stone-200/80 rounded-2xl p-5 shadow-sm">
+        <div className="bg-stone-50 border border-stone-200/80 rounded-2xl p-5 shadow-sm col-span-1 sm:col-span-2 lg:col-span-4">
           <h3 className="text-xs font-bold uppercase tracking-wider text-stone-500 font-display">Expected Combined Net Yield</h3>
           <div className="text-2xl font-extrabold text-indigo-700 mt-3 font-display tracking-tight">
             {formatPeso(expectedMonthlyNetIncome)}
@@ -532,45 +502,6 @@ export default function Overview({ state, onAdjustTarget, onAddCashAccount }: Ov
 
         {/* Right Column: Dynamic Cash Accounts */}
         <div className="space-y-6">
-          <div className="bg-stone-50 border border-stone-200 rounded-2xl p-5 shadow-sm">
-            <div className="flex justify-between items-center">
-              <h3 className="text-xs font-bold uppercase tracking-wider text-stone-500 font-display">Liquid Cash Pools</h3>
-              <button 
-                onClick={onAddCashAccount}
-                className="text-stone-600 hover:text-stone-800 text-xs font-bold border border-stone-300 rounded-lg px-2.5 py-1 transition bg-stone-50"
-              >
-                + Add Pools
-              </button>
-            </div>
-            <p className="text-[11px] text-stone-400 font-semibold mt-1 leading-relaxed">
-              Durable assets tracking. Balances are derived dynamically from matched cash-inflows and outflows.
-            </p>
-
-            <div className="space-y-2.5 mt-4">
-              {state.cashAccounts.map(acc => {
-                const balance = getCashAccountActivity(acc.id);
-                return (
-                  <div key={acc.id} className="bg-stone-50 hover:bg-stone-100/50 rounded-xl p-3 px-4 border border-stone-200/60 flex justify-between items-center transition">
-                    <div className="flex items-center gap-3">
-                      <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: acc.color }}></span>
-                      <span className="text-sm font-extrabold text-stone-800 font-display">{acc.name}</span>
-                    </div>
-                    <span className={`text-sm font-extrabold font-display ${balance >= 0 ? 'text-emerald-700' : 'text-red-700'}`}>
-                      {formatPeso(balance)}
-                    </span>
-                  </div>
-                );
-              })}
-
-              <div className="pt-4 border-t border-stone-200/80 flex justify-between items-center text-xs">
-                <span className="font-bold text-stone-500 uppercase tracking-widest font-display text-[10px]">Net Liquid Capital</span>
-                <span className={`text-base font-black font-display ${cashOnHandTotal >= 0 ? 'text-emerald-700' : 'text-red-700'}`}>
-                  {formatPeso(cashOnHandTotal)}
-                </span>
-              </div>
-            </div>
-          </div>
-
           {/* Quick Cash-on-Hand Statement Formula */}
           <div className="bg-stone-50 border border-stone-200 rounded-2xl p-5 shadow-sm space-y-4">
             <h3 className="text-xs font-bold uppercase tracking-wider text-stone-500 font-display pb-2 border-b border-stone-200/80">Liquid Capital Net Formula</h3>
@@ -634,24 +565,52 @@ export default function Overview({ state, onAdjustTarget, onAddCashAccount }: Ov
             {detailModal === 'cash' && (
               <div className="space-y-4 text-xs">
                 <div className="p-4 bg-stone-200/30 rounded-xl flex justify-between items-center">
-                  <span className="font-bold text-stone-600 uppercase tracking-widest font-display text-[10px]">Total Liquid Assets</span>
-                  <span className="text-lg font-black font-display text-emerald-800">{formatPeso(cashOnHandTotal)}</span>
+                  <div>
+                    <span className="font-bold text-stone-600 uppercase tracking-widest font-display text-[10px]">Total Liquid Assets</span>
+                    <span className="block text-xl font-black font-display text-emerald-800 mt-0.5">{formatPeso(cashOnHandTotal)}</span>
+                  </div>
+                  <button 
+                    onClick={() => {
+                      setDetailModal(null);
+                      onAddCashAccount();
+                    }}
+                    className="bg-stone-900 text-stone-50 hover:bg-stone-800 text-xs font-bold px-3 py-2 rounded-xl transition flex items-center gap-1 shadow-sm font-display cursor-pointer"
+                  >
+                    <Plus size={11} /> Add Pool
+                  </button>
                 </div>
-                <div className="space-y-2">
-                  {state.cashAccounts.map(item => {
-                    const activity = getCashAccountActivity(item.id);
-                    return (
-                      <div key={item.id} className="p-3 bg-stone-50 rounded-xl border border-stone-200 flex justify-between items-center">
-                        <span className="font-extrabold text-stone-700 flex items-center gap-2">
-                          <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: item.color }}></span>
-                          {item.name}
-                        </span>
-                        <span className={`font-extrabold ${activity >= 0 ? 'text-emerald-700' : 'text-red-700'}`}>
-                          {formatPeso(activity)}
-                        </span>
-                      </div>
-                    );
-                  })}
+                <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
+                  {state.cashAccounts.length === 0 ? (
+                    <div className="text-center py-6 text-stone-400 font-semibold italic">No cash pools defined yet</div>
+                  ) : (
+                    state.cashAccounts.map(item => {
+                      const activity = getCashAccountActivity(item.id);
+                      return (
+                        <div key={item.id} className="p-3 bg-stone-50 rounded-xl border border-stone-200 flex justify-between items-center hover:bg-stone-100/50 transition">
+                          <span className="font-extrabold text-stone-700 flex items-center gap-2">
+                            <span className="w-2.5 h-2.5 rounded-full animate-pulse" style={{ backgroundColor: item.color }}></span>
+                            {item.name}
+                          </span>
+                          <div className="flex items-center gap-3">
+                            <span className={`font-black font-display ${activity >= 0 ? 'text-emerald-700' : 'text-red-700'}`}>
+                              {formatPeso(activity)}
+                            </span>
+                            <button
+                              onClick={() => {
+                                if (confirm(`Are you sure you want to remove the Cash Pool "${item.name}"?`)) {
+                                  onDeleteCashAccount(item.id);
+                                }
+                              }}
+                              className="text-stone-400 hover:text-red-700 p-1.5 rounded-lg hover:bg-red-50 transition cursor-pointer"
+                              title="Delete Cash Pool"
+                            >
+                              <Trash2 size={13} />
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
                 </div>
               </div>
             )}

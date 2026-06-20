@@ -11,9 +11,7 @@ import {
   Check,
   X,
   ArrowUpRight,
-  HelpCircle,
-  ChevronDown,
-  ChevronRight
+  HelpCircle
 } from 'lucide-react';
 import { supabase, SUPABASE_TABLE, SUPABASE_DOC_ID } from '../supabase';
 
@@ -27,37 +25,6 @@ interface SupabaseSyncProps {
 export default function SupabaseSync({ syncStatus, onPull, onPush, localBackupSize }: SupabaseSyncProps) {
   const [showModal, setShowModal] = useState(false);
   const [copied, setCopied] = useState(false);
-  const [isCollapsed, setIsCollapsed] = useState<boolean>(() => {
-    const saved = localStorage.getItem('dink_finance_sync_collapsed');
-    return saved !== 'false'; // default to true (minimized)
-  });
-
-  const toggleCollapsed = () => {
-    setIsCollapsed(prev => {
-      const newVal = !prev;
-      localStorage.setItem('dink_finance_sync_collapsed', String(newVal));
-      return newVal;
-    });
-  };
-
-  const getMiniStatusBadge = () => {
-    switch (syncStatus) {
-      case 'unconfigured':
-        return <span className="text-[8px] bg-stone-300 text-stone-700 px-1.5 py-0.5 rounded font-black uppercase tracking-wider leading-none">Offline</span>;
-      case 'relation_missing':
-        return <span className="text-[8px] bg-red-100 text-red-800 px-1.5 py-0.5 rounded font-black uppercase tracking-wider leading-none">Setup</span>;
-      case 'loading':
-        return <span className="text-[8px] bg-amber-100 text-amber-805 px-1.5 py-0.5 rounded font-black uppercase tracking-wider leading-none animate-pulse">Loading</span>;
-      case 'saving':
-        return <span className="text-[8px] bg-[#E1F5FE] text-sky-800 px-1.5 py-0.5 rounded font-black uppercase tracking-wider leading-none animate-pulse">Saving</span>;
-      case 'synced':
-      case 'idle':
-        return <span className="text-[8px] bg-emerald-100 text-emerald-800 px-1.5 py-0.5 rounded font-black uppercase tracking-wider leading-none">Synced</span>;
-      case 'error':
-      default:
-        return <span className="text-[8px] bg-red-105 bg-red-100 text-red-850 text-red-800 px-1.5 py-0.5 rounded font-black uppercase tracking-wider leading-none">Error</span>;
-    }
-  };
 
   const sqlCode = `-- 1. Create the table to store your uniform DINK finance state
 CREATE TABLE IF NOT EXISTS ${SUPABASE_TABLE} (
@@ -88,42 +55,48 @@ ALTER TABLE ${SUPABASE_TABLE} DISABLE ROW LEVEL SECURITY;
       case 'unconfigured':
         return (
           <div className="bg-amber-100/60 border border-amber-500/10 rounded-xl p-3 text-stone-700">
-            <div className="flex items-center gap-1.5 font-bold text-xs text-amber-800">
-              <CloudOff size={14} className="text-amber-600" />
-              <span>Offline Local Mode</span>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-1.5 font-bold text-xs text-amber-800">
+                <CloudOff size={14} className="text-amber-600" />
+                <span>Offline Local Mode</span>
+              </div>
+              <button 
+                onClick={() => setShowModal(true)}
+                className="text-amber-700 hover:text-amber-900 transition p-0.5"
+                title="Credential details"
+              >
+                <HelpCircle size={14} />
+              </button>
             </div>
             <p className="text-[10px] text-stone-500 mt-1 leading-relaxed font-semibold">
-              Currently persisting your data to local storage. 
+              Currently persisting your data to local storage. Set up cloud secrets to sync automatically.
             </p>
-            <button 
-              onClick={() => setShowModal(true)}
-              className="text-[10px] text-amber-800 font-extrabold underline mt-1.5 hover:text-amber-950 inline-flex items-center gap-0.5"
-            >
-              How to connect Supabase <ArrowUpRight size={10} />
-            </button>
           </div>
         );
 
       case 'relation_missing':
         return (
           <div className="bg-red-50 border border-red-500/15 rounded-xl p-3 text-stone-700">
-            <div className="flex items-center gap-1.5 font-bold text-xs text-red-800">
-              <AlertCircle size={14} className="text-red-600 animate-pulse" />
-              <span>Table Missing in DB</span>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-1.5 font-bold text-xs text-red-800">
+                <AlertCircle size={14} className="text-red-600 animate-pulse" />
+                <span>Table Missing</span>
+              </div>
+              <button 
+                onClick={() => setShowModal(true)}
+                className="text-red-700 hover:text-red-900 transition p-0.5"
+                title="Setup guide"
+              >
+                <HelpCircle size={14} />
+              </button>
             </div>
             <p className="text-[10px] text-stone-500 mt-1 leading-relaxed font-semibold">
               The Supabase table `<code className="bg-red-100 p-0.5 px-1 rounded text-red-800 font-mono text-[9px]">{SUPABASE_TABLE}</code>` does not exist yet.
             </p>
-            <div className="flex items-center justify-between mt-2.5 pt-2 border-t border-red-500/5">
-              <button 
-                onClick={() => setShowModal(true)}
-                className="text-[10px] text-red-800 font-extrabold underline hover:text-red-950"
-              >
-                Run SQL Setup
-              </button>
+            <div className="flex items-center justify-end mt-2 pt-2 border-t border-red-500/5">
               <button 
                 onClick={onPush}
-                className="text-[9px] bg-red-800 text-white font-extrabold px-2 py-1 rounded hover:bg-red-900 shadow-sm"
+                className="text-[9px] bg-red-800 text-white font-extrabold px-2.5 py-1 rounded hover:bg-red-950 transition shadow-sm cursor-pointer"
               >
                 Retry Setup
               </button>
@@ -146,7 +119,7 @@ ALTER TABLE ${SUPABASE_TABLE} DISABLE ROW LEVEL SECURITY;
           <div className="bg-emerald-50 border border-emerald-500/10 rounded-xl p-3">
             <div className="flex items-center gap-2 font-bold text-xs text-emerald-800">
               <Loader2 size={13} className="text-emerald-600 animate-spin" />
-              <span>Saving to Cloud...</span>
+              <span>Saving changes...</span>
             </div>
           </div>
         );
@@ -155,29 +128,22 @@ ALTER TABLE ${SUPABASE_TABLE} DISABLE ROW LEVEL SECURITY;
       case 'idle':
         return (
           <div className="bg-emerald-100/60 border border-emerald-500/10 rounded-xl p-3 text-stone-700">
-            <div className="flex items-center gap-1.5 font-bold text-xs text-emerald-800">
-              <CheckCircle2 size={14} className="text-emerald-600" />
-              <span>Supabase Connected</span>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-1.5 font-bold text-xs text-emerald-800">
+                <CheckCircle2 size={14} className="text-emerald-600" />
+                <span>Cloud Synced</span>
+              </div>
+              <button 
+                onClick={() => setShowModal(true)}
+                className="text-emerald-700 hover:text-emerald-950 transition p-0.5"
+                title="Cloud database details"
+              >
+                <HelpCircle size={14} />
+              </button>
             </div>
             <p className="text-[10px] text-stone-500 mt-1 leading-relaxed font-semibold">
               Your entries are safely synced live with your cloud database.
             </p>
-            <div className="flex gap-2 mt-2 pt-2 border-t border-emerald-500/5">
-              <button 
-                onClick={onPull}
-                title="Force refresh state from Supabase"
-                className="flex-1 py-1 px-1.5 bg-[#DDD8CE] hover:bg-[#D0C9BE] text-[#554E41] font-extrabold rounded-lg text-[9px] uppercase tracking-wider inline-flex items-center justify-center gap-1 transition"
-              >
-                <RefreshCw size={10} /> Pull
-              </button>
-              <button 
-                onClick={onPush}
-                title="Force overwrite remote value with this local state"
-                className="flex-1 py-1 px-1.5 bg-emerald-700 hover:bg-emerald-800 text-white font-extrabold rounded-lg text-[9px] uppercase tracking-wider inline-flex items-center justify-center gap-1 transition shadow-sm"
-              >
-                <Cloud size={10} /> Push
-              </button>
-            </div>
           </div>
         );
 
@@ -185,23 +151,26 @@ ALTER TABLE ${SUPABASE_TABLE} DISABLE ROW LEVEL SECURITY;
       default:
         return (
           <div className="bg-red-50 border border-red-500/15 rounded-xl p-3 text-stone-700">
-            <div className="flex items-center gap-1.5 font-bold text-xs text-red-800">
-              <AlertCircle size={14} className="text-red-600" />
-              <span>Sync Error</span>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-1.5 font-bold text-xs text-red-800">
+                <AlertCircle size={14} className="text-red-600" />
+                <span>Sync Error</span>
+              </div>
+              <button 
+                onClick={() => setShowModal(true)}
+                className="text-red-700 hover:text-red-950 transition p-0.5"
+                title="Troubleshoot Guide"
+              >
+                <HelpCircle size={14} />
+              </button>
             </div>
             <p className="text-[10px] text-stone-500 mt-1 leading-relaxed font-semibold">
               Failed to sync updates to Supabase. Check connections or secrets.
             </p>
-            <div className="flex gap-1.5 mt-2.5 pt-2 border-t border-red-500/5">
-              <button 
-                onClick={() => setShowModal(true)}
-                className="py-1 px-2 text-[#554E41] hover:text-[#2E2A23] font-bold text-[9px] uppercase hover:underline"
-              >
-                Credentials
-              </button>
+            <div className="flex gap-1.5 mt-2 pt-2 border-t border-red-500/5 justify-end">
               <button 
                 onClick={onPull}
-                className="flex-1 py-1 px-1.5 bg-red-700 hover:bg-red-800 text-white font-extrabold rounded-lg text-[9px] uppercase tracking-wider inline-flex items-center justify-center gap-1 shadow-sm"
+                className="py-1 px-2.5 bg-red-800 hover:bg-red-900 text-white font-extrabold rounded-lg text-[9px] uppercase tracking-wider inline-flex items-center justify-center gap-1 shadow-sm transition cursor-pointer"
               >
                 <RefreshCw size={10} /> Retry Pull
               </button>
@@ -214,18 +183,11 @@ ALTER TABLE ${SUPABASE_TABLE} DISABLE ROW LEVEL SECURITY;
   return (
     <>
       <div className="space-y-1.5">
-        <button 
-          onClick={toggleCollapsed}
-          className="w-full flex items-center justify-between text-[10px] font-extrabold uppercase tracking-widest text-[#8E8779] font-display hover:text-stone-700 transition cursor-pointer py-1"
-        >
-          <span className="flex items-center gap-1.5">
-            <Database size={11} className="text-[#8E8779]" />
-            <span>Database Sync</span>
-            {getMiniStatusBadge()}
-          </span>
-          {isCollapsed ? <ChevronRight size={12} className="text-[#8E8779]" /> : <ChevronDown size={12} className="text-[#8E8779]" />}
-        </button>
-        {!isCollapsed && renderStatus()}
+        <div className="flex items-center gap-1.5 text-[10px] font-extrabold uppercase tracking-widest text-[#8E8779] font-display py-1">
+          <Database size={11} className="text-[#8E8779]" />
+          <span>Database Sync</span>
+        </div>
+        {renderStatus()}
       </div>
 
       {showModal && (
