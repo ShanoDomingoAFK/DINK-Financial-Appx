@@ -33,8 +33,8 @@ import {
 import { AVATAR_PRESETS } from './Login';
 
 // Helper component to render amounts with dynamic font sizes so they perfectly fit the space of the box
-function DynamicAmount({ value, prefix = "", isIncoming = true }: { value: number; prefix?: string; isIncoming?: boolean }) {
-  const text = `${prefix}${formatPeso(value)}`;
+function DynamicAmount({ value, isIncoming = true }: { value: number; isIncoming?: boolean }) {
+  const text = formatPeso(value);
   let fontSize = "text-lg";
   if (text.length > 15) {
     fontSize = "text-xs";
@@ -144,14 +144,6 @@ export default function Overview({ state, onAdjustTarget, onAddCashAccount, onDe
       .reduce((sum, e) => sum + e.amount, 0);
   };
 
-  // Remaining budget caps
-  const getBudgetLimitForMonth = (b: { id: string; cat: string; limit: number }) => {
-    const monthMap = state.monthlyBudgets[currentMonthKey] || {};
-    if (monthMap[b.id] !== undefined) return monthMap[b.id];
-    if (monthMap[b.cat] !== undefined) return monthMap[b.cat];
-    return b.limit;
-  };
-
   // Amortization status and payments
   const getAmortizationPaymentTotal = (item: any) => {
     const manualAndDirectPaid = state.expenses
@@ -173,6 +165,17 @@ export default function Overview({ state, onAdjustTarget, onAddCashAccount, onDe
     // Total paid to amortization categories
     const paid = state.amortizations.reduce((sum, item) => sum + getAmortizationPaymentTotal(item), 0);
     return { due, paid, remaining: Math.max(0, due - paid) };
+  };
+
+  // Remaining budget caps
+  const getBudgetLimitForMonth = (b: { id: string; cat: string; limit: number }) => {
+    if (b.cat === 'amortization') {
+      return amortizationBudgetTotals().remaining;
+    }
+    const monthMap = state.monthlyBudgets[currentMonthKey] || {};
+    if (monthMap[b.id] !== undefined) return monthMap[b.id];
+    if (monthMap[b.cat] !== undefined) return monthMap[b.cat];
+    return b.limit;
   };
 
   const remainingBudgetTotal = state.budgets.reduce((sum, b) => {
@@ -367,7 +370,7 @@ export default function Overview({ state, onAdjustTarget, onAddCashAccount, onDe
             <div className="text-xs font-bold text-stone-500 font-display uppercase tracking-wider group-hover:text-stone-300 flex items-center gap-1">
               Cash on Hand <ArrowRight size={10} className="text-stone-600 group-hover:text-stone-400" />
             </div>
-            <DynamicAmount value={cashOnHandTotal} prefix="+" isIncoming={true} />
+            <DynamicAmount value={cashOnHandTotal} isIncoming={true} />
             <div className="text-[10px] text-stone-500 font-semibold mt-1">
               Liquidity assets total
             </div>
@@ -380,7 +383,7 @@ export default function Overview({ state, onAdjustTarget, onAddCashAccount, onDe
             <div className="text-xs font-bold text-stone-500 font-display uppercase tracking-wider group-hover:text-stone-300 flex items-center gap-1">
               Unlogged Salary <ArrowRight size={10} className="text-stone-600 group-hover:text-stone-400" />
             </div>
-            <DynamicAmount value={salaryToReceive} prefix="+" isIncoming={true} />
+            <DynamicAmount value={salaryToReceive} isIncoming={true} />
             <div className="text-[10px] text-stone-500 font-semibold mt-1">
               Outstanding base pay
             </div>
@@ -393,7 +396,7 @@ export default function Overview({ state, onAdjustTarget, onAddCashAccount, onDe
             <div className="text-xs font-bold text-stone-500 font-display uppercase tracking-wider group-hover:text-stone-300 flex items-center gap-1">
               Unlogged Consulting <ArrowRight size={10} className="text-stone-600 group-hover:text-stone-400" />
             </div>
-            <DynamicAmount value={additionalIncomeToReceive} prefix="+" isIncoming={true} />
+            <DynamicAmount value={additionalIncomeToReceive} isIncoming={true} />
             <div className="text-[10px] text-stone-500 font-semibold mt-1">
               Secondary inbound streams
             </div>
@@ -406,7 +409,7 @@ export default function Overview({ state, onAdjustTarget, onAddCashAccount, onDe
             <div className="text-xs font-bold text-stone-500 font-display uppercase tracking-wider group-hover:text-stone-300 flex items-center gap-1">
               Remaining Budget <ArrowRight size={10} className="text-stone-600 group-hover:text-stone-400" />
             </div>
-            <DynamicAmount value={remainingBudgetTotal} prefix="−" isIncoming={false} />
+            <DynamicAmount value={remainingBudgetTotal} isIncoming={false} />
             <div className="text-[10px] text-stone-500 font-semibold mt-1">
               Unused allowable caps
             </div>
@@ -419,7 +422,7 @@ export default function Overview({ state, onAdjustTarget, onAddCashAccount, onDe
             <div className="text-xs font-bold text-stone-500 font-display uppercase tracking-wider group-hover:text-stone-300 flex items-center gap-1">
               Credit Cards Owed <ArrowRight size={10} className="text-stone-600 group-hover:text-stone-400" />
             </div>
-            <DynamicAmount value={creditCardTotalOwed} prefix="−" isIncoming={false} />
+            <DynamicAmount value={creditCardTotalOwed} isIncoming={false} />
             <div className="text-[10px] text-stone-500 font-semibold mt-1">
               Card liability total
             </div>
@@ -628,7 +631,7 @@ export default function Overview({ state, onAdjustTarget, onAddCashAccount, onDe
 
                 <div className="p-3 bg-red-50/50 text-red-900 rounded-xl border border-red-100 flex justify-between">
                   <span className="font-bold">Total Salaries Received This Month ({formatMonth(currentMonthKey)})</span>
-                  <span className="font-black">− {formatPeso(salaryReceivedThisMonth)}</span>
+                  <span className="font-black">{formatPeso(salaryReceivedThisMonth)}</span>
                 </div>
 
                 <div className="p-4 bg-indigo-50 text-indigo-950 font-extrabold border border-indigo-100 rounded-xl flex justify-between items-center">
@@ -658,7 +661,7 @@ export default function Overview({ state, onAdjustTarget, onAddCashAccount, onDe
 
                 <div className="p-3 bg-red-50/50 text-red-900 rounded-xl border border-red-100 flex justify-between">
                   <span className="font-bold">Consulting Streams Already Logged this Month</span>
-                  <span className="font-black">− {formatPeso(additionalReceivedThisMonth)}</span>
+                  <span className="font-black">{formatPeso(additionalReceivedThisMonth)}</span>
                 </div>
 
                 <div className="p-4 bg-indigo-50 text-indigo-950 font-extrabold border border-indigo-100 rounded-xl flex justify-between items-center">

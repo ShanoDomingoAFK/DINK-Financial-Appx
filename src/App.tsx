@@ -130,6 +130,8 @@ export default function App() {
   }, [state]);
 
   // ─── SUPABASE CLOUD PERSISTENCE ───
+  const hasFetchedFromSupabaseRef = React.useRef(false);
+
   const [syncStatus, setSyncStatus] = useState<'idle' | 'loading' | 'saving' | 'synced' | 'error' | 'unconfigured' | 'relation_missing'>(() => {
     return supabase ? 'idle' : 'unconfigured';
   });
@@ -157,6 +159,7 @@ export default function App() {
             .upsert({ id: docId, state: state, updated_at: new Date().toISOString() });
           if (upsertError) throw upsertError;
           setSyncStatus('synced');
+          hasFetchedFromSupabaseRef.current = true;
         } else {
           throw error;
         }
@@ -168,6 +171,7 @@ export default function App() {
         if (!parsed.cashAccounts) parsed.cashAccounts = [];
         setState(parsed);
         setSyncStatus('synced');
+        hasFetchedFromSupabaseRef.current = true;
       }
     } catch (err: any) {
       console.error('Supabase fetch error:', err);
@@ -220,15 +224,16 @@ export default function App() {
     });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (session?.user) {
-        setUser(session.user);
-        setIsUnlocked(true);
-        sessionStorage.setItem('dink_finance_unlocked', 'true');
-        fetchFromSupabase(session.user);
-      } else if (event === 'SIGNED_OUT') {
-        setUser(null);
-      }
-    });
+        if (session?.user) {
+          setUser(session.user);
+          setIsUnlocked(true);
+          sessionStorage.setItem('dink_finance_unlocked', 'true');
+          fetchFromSupabase(session.user);
+        } else if (event === 'SIGNED_OUT') {
+          setUser(null);
+          hasFetchedFromSupabaseRef.current = false;
+        }
+      });
 
     return () => subscription.unsubscribe();
   }, []);
@@ -243,6 +248,7 @@ export default function App() {
   // Debounced auto-save on state mutation
   useEffect(() => {
     if (!isUnlocked || !supabase || syncStatus === 'loading') return;
+    if (!hasFetchedFromSupabaseRef.current) return;
 
     const timer = setTimeout(() => {
       saveToSupabase(state, user);
@@ -254,6 +260,7 @@ export default function App() {
   const handleLogActiveSessionOut = async () => {
     sessionStorage.removeItem('dink_finance_unlocked');
     setIsUnlocked(false);
+    hasFetchedFromSupabaseRef.current = false;
     if (supabase) {
       await supabase.auth.signOut();
     }

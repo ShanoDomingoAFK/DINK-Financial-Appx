@@ -26,11 +26,20 @@ interface AmountInputProps {
 
 function AmountInput({ value, onChange, className = "w-24 text-right font-extrabold border border-stone-200 rounded-lg p-1 px-2.5 outline-none bg-stone-50 font-display", placeholder }: AmountInputProps) {
   const [localVal, setLocalVal] = useState(value > 0 ? formatPeso(value) : '');
+  const [isFocused, setIsFocused] = useState(false);
 
   React.useEffect(() => {
-    // Sync local state if external state updates
-    setLocalVal(value > 0 ? formatPeso(value) : '');
-  }, [value]);
+    // Only sync external prop value to local value when NOT actively editing
+    if (!isFocused) {
+      setLocalVal(value > 0 ? formatPeso(value) : '');
+    }
+  }, [value, isFocused]);
+
+  const handleCommit = () => {
+    const parsed = parseMoney(localVal);
+    onChange(parsed);
+    setLocalVal(parsed > 0 ? formatPeso(parsed) : '');
+  };
 
   return (
     <input 
@@ -39,15 +48,19 @@ function AmountInput({ value, onChange, className = "w-24 text-right font-extrab
       className={className}
       placeholder={placeholder || "₱ 0.00"}
       value={localVal}
+      onFocus={() => setIsFocused(true)}
       onChange={e => {
         const typing = formatAsYouTypeHTML(e.target.value);
         setLocalVal(typing);
-        onChange(parseMoney(typing));
       }}
       onBlur={() => {
-        const parsed = parseMoney(localVal);
-        setLocalVal(parsed > 0 ? formatPeso(parsed) : '');
-        onChange(parsed);
+        setIsFocused(false);
+        handleCommit();
+      }}
+      onKeyDown={e => {
+        if (e.key === 'Enter') {
+          (e.target as HTMLInputElement).blur();
+        }
       }}
     />
   );

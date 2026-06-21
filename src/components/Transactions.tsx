@@ -76,6 +76,19 @@ export default function Transactions({
 
   // ─── TRANSACTION EDITING STATES ───
   const [editTx, setEditTx] = useState<{ rowType: 'income' | 'expense' | 'transfer'; itemItem: any } | null>(null);
+  const [editForm, setEditForm] = useState<{
+    id: string;
+    rowType: 'income' | 'expense' | 'transfer';
+    desc: string;
+    amount: string;
+    date: string;
+    cat: string;
+    via: string;
+    fromId: string;
+    toId: string;
+    earner: string;
+    type?: 'salary' | 'additional';
+  } | null>(null);
 
   // ─── PREPARE FILTER OPTION LISTS ───
   const getMonthOptions = () => {
@@ -311,6 +324,56 @@ export default function Transactions({
     setActiveModal(null);
   };
 
+  const handleEditSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editForm) return;
+
+    const amt = parseMoney(editForm.amount);
+    if (amt <= 0) {
+      alert('Please enter a valid amount greater than 0.');
+      return;
+    }
+
+    if (editForm.rowType === 'income') {
+      const [, sourceId] = editForm.via.split(':');
+      updateIncome(editForm.id, {
+        desc: editForm.desc.trim(),
+        amount: amt,
+        date: editForm.date,
+        via: editForm.via,
+        paymentSourceId: sourceId || '',
+        earner: editForm.earner,
+        type: editForm.type
+      });
+    } else if (editForm.rowType === 'expense') {
+      const [sourceType, sourceId] = editForm.via.split(':');
+      updateExpense(editForm.id, {
+        desc: editForm.desc.trim(),
+        amount: amt,
+        date: editForm.date,
+        cat: editForm.cat,
+        via: editForm.via,
+        paymentSourceType: sourceType as 'cash' | 'card',
+        paymentSourceId: sourceId || '',
+        earner: editForm.earner
+      });
+    } else if (editForm.rowType === 'transfer') {
+      if (!editForm.fromId || !editForm.toId || editForm.fromId === editForm.toId) {
+        alert('Select distinct cash accounts to transfer capital.');
+        return;
+      }
+      updateTransfer(editForm.id, {
+        desc: editForm.desc.trim() || 'Internal Cash Transfer',
+        amount: amt,
+        date: editForm.date,
+        fromCashAccountId: editForm.fromId,
+        toCashAccountId: editForm.toId
+      });
+    }
+
+    setEditForm(null);
+  };
+
   // SSS, PhilHealth, Pag-IBIG thresholds helper
   const getCardOwedTotal = (cardId: string) => {
     const card = state.cards.find(c => c.id === cardId);
@@ -509,7 +572,7 @@ export default function Transactions({
                     
                   const paymentSource = getPaymentSourceVisual(row, row.rowType);
                   const color = isIncome ? 'text-emerald-700' : isTransfer ? 'text-indigo-700' : 'text-red-700';
-                  const sign = isIncome ? '+' : isTransfer ? '⇄ ' : '−';
+                  const sign = '';
 
                   return (
                     <div key={row.id} className="grid grid-cols-12 gap-4 py-3.5 items-center hover:bg-stone-100/40 rounded-xl transition px-1">
@@ -550,7 +613,28 @@ export default function Transactions({
                         {sign}{formatPeso(row.amount)}
                       </div>
 
-                      <div className="col-span-0.5 flex justify-end gap-2 pr-1">
+                      <div className="col-span-0.5 flex justify-end gap-1.5 pr-1">
+                        <button
+                          onClick={() => {
+                            setEditForm({
+                              id: row.id,
+                              rowType: row.rowType,
+                              desc: row.desc,
+                              amount: formatPeso(row.amount),
+                              date: row.date,
+                              cat: row.cat || '',
+                              via: row.via || '',
+                              fromId: row.fromCashAccountId || '',
+                              toId: row.toCashAccountId || '',
+                              earner: row.earner || '',
+                              type: row.type as any
+                            });
+                          }}
+                          className="text-stone-400 hover:text-stone-700 p-1 rounded hover:bg-stone-100 transition"
+                          title="Edit Transaction Entry"
+                        >
+                          <Edit3 size={13} />
+                        </button>
                         <button
                           onClick={() => {
                             if (row.rowType === 'income') {
@@ -987,6 +1071,230 @@ export default function Transactions({
                   </div>
                 </form>
               )}
+            </motion.div>
+          </div>
+        )}
+
+        {editForm && (
+          <div className="fixed inset-0 bg-stone-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="bg-stone-50 border border-stone-200 rounded-3xl p-6 shadow-2xl w-full max-w-md max-h-[92vh] overflow-y-auto"
+            >
+              <div className="flex justify-between items-center mb-5 pb-2 border-b border-stone-200/80">
+                <h3 className="text-lg font-black tracking-tight text-stone-900 font-display flex items-center gap-2">
+                  📝 Edit Transaction
+                </h3>
+                <button onClick={() => setEditForm(null)} className="text-stone-400 hover:text-stone-700">
+                  <X size={18} />
+                </button>
+              </div>
+
+              <form onSubmit={handleEditSubmit} className="space-y-4 text-xs font-semibold text-stone-700">
+                
+                {/* Description */}
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-extrabold uppercase tracking-wider text-stone-400 font-display">Description</label>
+                  <input 
+                    type="text" 
+                    className="w-full text-xs font-semibold border border-stone-200 rounded-xl p-2.5 bg-stone-100/50 outline-none focus:border-stone-400 focus:bg-stone-55 transition"
+                    value={editForm.desc}
+                    onChange={e => setEditForm(prev => prev ? ({ ...prev, desc: e.target.value }) : null)}
+                    required
+                  />
+                </div>
+
+                {/* Amount & Date Grid */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-extrabold uppercase tracking-wider text-stone-400 font-display">Amount (₱)</label>
+                    <input 
+                      type="text" 
+                      inputMode="decimal"
+                      className={`w-full text-xs font-black border border-stone-200 rounded-xl p-2.5 bg-stone-100/55 outline-none focus:border-stone-400 text-right font-display ${
+                        editForm.rowType === 'income' ? 'text-emerald-800' : editForm.rowType === 'transfer' ? 'text-indigo-800' : 'text-red-800'
+                      }`}
+                      value={editForm.amount}
+                      onChange={e => {
+                        const val = e.target.value;
+                        setEditForm(prev => prev ? ({ ...prev, amount: formatAsYouTypeHTML(val) }) : null);
+                      }}
+                      onBlur={e => {
+                        const num = parseMoney(e.target.value);
+                        setEditForm(prev => prev ? ({ ...prev, amount: num > 0 ? formatPeso(num) : '' }) : null);
+                      }}
+                      required
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-extrabold uppercase tracking-wider text-stone-400 font-display">Date</label>
+                    <input 
+                      type="date" 
+                      className="w-full text-xs font-semibold border border-stone-200 rounded-xl p-2.5 bg-stone-100/50 outline-none focus:border-stone-400 font-display"
+                      value={editForm.date}
+                      onChange={e => setEditForm(prev => prev ? ({ ...prev, date: e.target.value }) : null)}
+                      required
+                    />
+                  </div>
+                </div>
+
+                {/* Conditional Fields based on Transaction Type */}
+                {editForm.rowType === 'income' && (
+                  <>
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] font-extrabold uppercase tracking-wider text-stone-400 font-display">Inbound Deposit Destination</label>
+                      <select 
+                        className="w-full text-xs font-semibold border border-stone-200 rounded-xl p-2.5 bg-stone-100/50 outline-none focus:border-stone-400"
+                        value={editForm.via}
+                        onChange={e => setEditForm(prev => prev ? ({ ...prev, via: e.target.value }) : null)}
+                        required
+                      >
+                        {state.cashAccounts.map(a => (
+                          <option key={a.id} value={`cash:${a.id}`}>📂 Cash Pool: {a.name}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-1.5">
+                        <label className="text-[10px] font-extrabold uppercase tracking-wider text-stone-400 font-display">Classification</label>
+                        <select 
+                          className="w-full text-xs font-semibold border border-stone-200 rounded-xl p-2.5 bg-stone-100/50 outline-none focus:border-stone-400"
+                          value={editForm.type}
+                          onChange={e => setEditForm(prev => prev ? ({ ...prev, type: e.target.value as any }) : null)}
+                        >
+                          <option value="salary">Primary Base Salary</option>
+                          <option value="additional">Alternative Consulting</option>
+                        </select>
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <label className="text-[10px] font-extrabold uppercase tracking-wider text-stone-400 font-display">Resource Owner</label>
+                        <select 
+                          className="w-full text-xs font-semibold border border-stone-200 rounded-xl p-2.5 bg-stone-100/50 outline-none focus:border-stone-400"
+                          value={editForm.earner}
+                          onChange={e => setEditForm(prev => prev ? ({ ...prev, earner: e.target.value }) : null)}
+                        >
+                          <option value="You">{state.partnerNames.you}</option>
+                          <option value="Partner">{state.partnerNames.partner}</option>
+                          <option value="Joint">Joint Asset Pooling</option>
+                        </select>
+                      </div>
+                    </div>
+                  </>
+                )}
+
+                {editForm.rowType === 'expense' && (
+                  <>
+                    <div className="grid grid-cols-2 gap-4">
+                      {editForm.cat === 'card_payment' ? (
+                        <div className="space-y-1.5 col-span-2">
+                          <label className="text-[10px] font-extrabold uppercase tracking-wider text-stone-400 font-display">Budget Category (Read-only)</label>
+                          <div className="w-full text-xs font-semibold border border-stone-200 rounded-xl p-2.5 bg-stone-200/50 outline-none select-none">
+                            💳 Credit Card Settlement
+                          </div>
+                        </div>
+                      ) : (
+                        <>
+                          <div className="space-y-1.5">
+                            <label className="text-[10px] font-extrabold uppercase tracking-wider text-stone-400 font-display">Budget Category Group</label>
+                            <select 
+                              className="w-full text-xs font-semibold border border-stone-200 rounded-xl p-2.5 bg-stone-100/50 outline-none focus:border-stone-400"
+                              value={editForm.cat}
+                              onChange={e => setEditForm(prev => prev ? ({ ...prev, cat: e.target.value }) : null)}
+                              required
+                            >
+                              {CATEGORIES.filter(c => c.v !== 'card_payment' && c.v !== 'amortization').map(c => (
+                                <option key={c.v} value={c.v}>{c.i} {c.l}</option>
+                              ))}
+                            </select>
+                          </div>
+
+                          <div className="space-y-1.5">
+                            <label className="text-[10px] font-extrabold uppercase tracking-wider text-stone-400 font-display">Designated Earner</label>
+                            <select 
+                              className="w-full text-xs font-semibold border border-stone-200 rounded-xl p-2.5 bg-stone-100/50 outline-none focus:border-stone-400"
+                              value={editForm.earner}
+                              onChange={e => setEditForm(prev => prev ? ({ ...prev, earner: e.target.value }) : null)}
+                            >
+                              <option value="Joint">Joint Asset Pooling</option>
+                              <option value="You">{state.partnerNames.you}</option>
+                              <option value="Partner">{state.partnerNames.partner}</option>
+                            </select>
+                          </div>
+                        </>
+                      )}
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] font-extrabold uppercase tracking-wider text-stone-400 font-display">Payment Vehicle (Source)</label>
+                      <select 
+                        className="w-full text-xs font-semibold border border-stone-200 rounded-xl p-2.5 bg-stone-100/50 outline-none focus:border-stone-400 font-display"
+                        value={editForm.via}
+                        onChange={e => setEditForm(prev => prev ? ({ ...prev, via: e.target.value }) : null)}
+                        required
+                      >
+                        {state.cashAccounts.length > 0 && (
+                          <optgroup label="Cash on Hand Pool">
+                            {state.cashAccounts.map(a => (
+                              <option key={a.id} value={`cash:${a.id}`}>📂 {a.name} (Matched Cash)</option>
+                            ))}
+                          </optgroup>
+                        )}
+                        {state.cards.length > 0 && (
+                          <optgroup label="Unsecured Credit Lines">
+                            {state.cards.map(c => (
+                              <option key={c.id} value={`card:${c.id}`}>💳 {c.name} ({c.bank})</option>
+                            ))}
+                          </optgroup>
+                        )}
+                      </select>
+                    </div>
+                  </>
+                )}
+
+                {editForm.rowType === 'transfer' && (
+                  <>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-1.5">
+                        <label className="text-[10px] font-extrabold uppercase tracking-wider text-stone-400 font-display">Debit Source (From)</label>
+                        <select 
+                          className="w-full text-xs font-semibold border border-stone-200 rounded-xl p-2.5 bg-stone-100/50 outline-none focus:border-stone-400"
+                          value={editForm.fromId}
+                          onChange={e => setEditForm(prev => prev ? ({ ...prev, fromId: e.target.value }) : null)}
+                          required
+                        >
+                          {state.cashAccounts.map(a => (
+                            <option key={a.id} value={a.id}>Deb: {a.name}</option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <label className="text-[10px] font-extrabold uppercase tracking-wider text-stone-400 font-display">Credit Dest (To)</label>
+                        <select 
+                          className="w-full text-xs font-semibold border border-stone-200 rounded-xl p-2.5 bg-stone-100/50 outline-none focus:border-stone-400"
+                          value={editForm.toId}
+                          onChange={e => setEditForm(prev => prev ? ({ ...prev, toId: e.target.value }) : null)}
+                          required
+                        >
+                          {state.cashAccounts.map(a => (
+                            <option key={a.id} value={a.id}>Cre: {a.name}</option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+                  </>
+                )}
+
+                <div className="flex gap-2 justify-end pt-4 border-t border-stone-200/80">
+                  <button type="button" onClick={() => setEditForm(null)} className="btn btn-ghost text-xs">Cancel</button>
+                  <button type="submit" className="btn btn-primary bg-stone-900 hover:bg-stone-850 text-stone-50 px-4 py-2 rounded-xl text-xs transition font-bold font-display">Save Changes</button>
+                </div>
+              </form>
             </motion.div>
           </div>
         )}

@@ -588,7 +588,7 @@ export default function CreditCards({
                               {formatDisplayDate(log.date)} · Deducted from {log.via}
                             </div>
                           </div>
-                          <span className="font-black text-emerald-800">− {formatPeso(log.amount)}</span>
+                          <span className="font-black text-emerald-800">{formatPeso(log.amount)}</span>
                         </div>
                       ))}
                     </div>

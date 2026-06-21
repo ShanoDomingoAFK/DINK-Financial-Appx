@@ -77,7 +77,7 @@ export function formatPeso(value: string | number, decimals: number = 2): string
     minimumFractionDigits: decimals,
     maximumFractionDigits: decimals
   });
-  return (num < 0 ? '−' : '') + '₱ ' + formatted;
+  return '₱ ' + formatted;
 }
 
 export function formatAsYouTypeHTML(value: string): string {

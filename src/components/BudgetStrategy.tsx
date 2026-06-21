@@ -40,10 +40,20 @@ interface AmountInputInlineProps {
 
 function AmountInputInline({ value, onChange, className = "w-24 text-xs font-extrabold border border-stone-200 rounded-lg p-1 px-2 outline-none focus:border-stone-400 bg-stone-100/50 focus:bg-stone-50 font-display text-right text-emerald-800" }: AmountInputInlineProps) {
   const [localVal, setLocalVal] = useState(value > 0 ? formatPeso(value) : '');
+  const [isFocused, setIsFocused] = useState(false);
 
   React.useEffect(() => {
-    setLocalVal(value > 0 ? formatPeso(value) : '');
-  }, [value]);
+    // Only sync external prop value to local value when NOT actively editing
+    if (!isFocused) {
+      setLocalVal(value > 0 ? formatPeso(value) : '');
+    }
+  }, [value, isFocused]);
+
+  const handleCommit = () => {
+    const parsed = parseMoney(localVal);
+    onChange(parsed);
+    setLocalVal(parsed > 0 ? formatPeso(parsed) : '');
+  };
 
   return (
     <input 
@@ -51,15 +61,19 @@ function AmountInputInline({ value, onChange, className = "w-24 text-xs font-ext
       inputMode="decimal"
       className={className}
       value={localVal}
+      onFocus={() => setIsFocused(true)}
       onChange={e => {
         const typing = formatAsYouTypeHTML(e.target.value);
         setLocalVal(typing);
-        onChange(parseMoney(typing));
       }}
       onBlur={() => {
-        const parsed = parseMoney(localVal);
-        setLocalVal(parsed > 0 ? formatPeso(parsed) : '');
-        onChange(parsed);
+        setIsFocused(false);
+        handleCommit();
+      }}
+      onKeyDown={e => {
+        if (e.key === 'Enter') {
+          (e.target as HTMLInputElement).blur();
+        }
       }}
     />
   );
@@ -120,14 +134,6 @@ export default function BudgetStrategy({
 
   const bgtMonths = getBudgetMonthOptions();
 
-  // Helper limits getter
-  const getBudgetLimitForMonth = (b: Budget) => {
-    const monthMap = state.monthlyBudgets[selectedMonthKey] || {};
-    if (monthMap[b.id] !== undefined) return monthMap[b.id];
-    if (monthMap[b.cat] !== undefined) return monthMap[b.cat];
-    return b.limit;
-  };
-
   // Helper spent calculator
   const getSpentByCategory = (cat: string) => {
     return state.expenses
@@ -169,6 +175,17 @@ export default function BudgetStrategy({
   };
 
   const amortTotals = getAmortizationBudgetTotals();
+
+  // Helper limits getter
+  const getBudgetLimitForMonth = (b: Budget) => {
+    if (b.cat === 'amortization') {
+      return amortTotals.remaining;
+    }
+    const monthMap = state.monthlyBudgets[selectedMonthKey] || {};
+    if (monthMap[b.id] !== undefined) return monthMap[b.id];
+    if (monthMap[b.cat] !== undefined) return monthMap[b.cat];
+    return b.limit;
+  };
 
   // ─── EXTENDED CATEGORY SOA METRICS ───
   const getBudgetCategoryTransactionRows = (cat: string) => {
@@ -353,12 +370,20 @@ export default function BudgetStrategy({
                 </div>
 
                 {/* Inline limit input */}
-                <div className="flex items-center gap-1">
-                  <span className="text-[10px] text-stone-400 font-extrabold">₱</span>
-                  <AmountInputInline 
-                    value={limit}
-                    onChange={val => updateBudgetLimit(b.id, val, selectedMonthKey)}
-                  />
+                <div className="flex items-center gap-1 min-h-[28px]">
+                  {b.cat === 'amortization' ? (
+                    <span className="text-xs font-black text-stone-800 font-display select-none py-1 bg-stone-200/50 rounded-lg px-2.5" title="Automatically linked to unpaid amortization schedule dues">
+                      {formatPeso(limit)} <span className="text-[9px] font-bold text-stone-500 uppercase ml-1">Auto</span>
+                    </span>
+                  ) : (
+                    <>
+                      <span className="text-[10px] text-stone-400 font-extrabold">₱</span>
+                      <AmountInputInline 
+                        value={limit}
+                        onChange={val => updateBudgetLimit(b.id, val, selectedMonthKey)}
+                      />
+                    </>
+                  )}
                 </div>
 
                 <div className="flex items-center justify-between gap-2 pt-1 border-t border-stone-200/50">
