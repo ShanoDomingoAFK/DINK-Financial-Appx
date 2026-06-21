@@ -115,6 +115,22 @@ export interface Settings {
   cashOnHand: number;
 }
 
+export interface Ingredient {
+  name: string; // e.g. "Pork Belly", "Red Onion", "Vinegar"
+  amount: number; // numerical quantity
+  unit: string; // "g", "pcs", "ml", "cloves", "can", etc.
+  category: 'meat' | 'poultry' | 'seafood' | 'vegetables' | 'condiments' | 'others';
+}
+
+export interface Recipe {
+  id: string;
+  name: string;
+  emoji: string;
+  description: string;
+  ingredients: Ingredient[];
+  isSelected: boolean;
+}
+
 export interface GlobalState {
   partnerNames: PartnerNames;
   salaries: Salaries;
@@ -132,4 +148,5 @@ export interface GlobalState {
   transfers: FundTransfer[];
   cashAccounts: CashAccount[];
   settings: Settings;
+  recipes?: Recipe[];
 }

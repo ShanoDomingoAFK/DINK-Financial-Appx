@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { Budget, CreditCard, GlobalState, ReceivedIncome, Expense, Amortization, FundTransfer } from './types';
+import { Budget, CreditCard, GlobalState, ReceivedIncome, Expense, Amortization, FundTransfer, Recipe } from './types';
 
 export const CATEGORIES = [
   { v: 'food', l: 'Food & Groceries', i: '🛒' },
@@ -402,3 +402,102 @@ export const INITIAL_STATE: GlobalState = {
     cashOnHand: 0
   }
 };
+
+export const DEFAULT_RECIPES: Recipe[] = [
+  {
+    id: 'rec_adobo',
+    name: 'Adobong Baboy (Pork Adobo)',
+    emoji: '🍛',
+    description: 'Savory stewed pork belly tenderly simmered in vinegar, soy sauce, garlic, and bay leaves.',
+    isSelected: true,
+    ingredients: [
+      { name: 'Pork Belly (Liempo)', amount: 500, unit: 'g', category: 'meat' },
+      { name: 'Garlic', amount: 6, unit: 'cloves', category: 'condiments' },
+      { name: 'Soy Sauce', amount: 60, unit: 'ml', category: 'condiments' },
+      { name: 'Vinegar', amount: 40, unit: 'ml', category: 'condiments' },
+      { name: 'Whole Peppercorns', amount: 10, unit: 'pcs', category: 'condiments' },
+      { name: 'Bay Leaves', amount: 3, unit: 'pcs', category: 'condiments' }
+    ]
+  },
+  {
+    id: 'rec_sinigang',
+    name: 'Sinigang na Baboy (Pork Sinigang)',
+    emoji: '🍲',
+    description: 'Classic Philippine sour soup with tender pork cuts, fresh taro, and local market vegetables.',
+    isSelected: false,
+    ingredients: [
+      { name: 'Pork Ribs / Pork Belly', amount: 500, unit: 'g', category: 'meat' },
+      { name: 'Sinigang Mix Powder', amount: 1, unit: 'pack', category: 'condiments' },
+      { name: 'Tomato', amount: 2, unit: 'pcs', category: 'vegetables' },
+      { name: 'Radish (Labanos)', amount: 1, unit: 'pc', category: 'vegetables' },
+      { name: 'Kangkong (Water Spinach)', amount: 1, unit: 'bunch', category: 'vegetables' },
+      { name: 'Gabi (Taro Root)', amount: 2, unit: 'pcs', category: 'vegetables' },
+      { name: 'Green Long Chili (Sili)', amount: 2, unit: 'pcs', category: 'vegetables' },
+      { name: 'Onion', amount: 1, unit: 'pc', category: 'condiments' }
+    ]
+  },
+  {
+    id: 'rec_tinola',
+    name: 'Tinolang Manok (Chicken Tinola)',
+    emoji: '🍗',
+    description: 'Comforting, gingery bone-in chicken soup served with chili leaves and green papaya slice.',
+    isSelected: false,
+    ingredients: [
+      { name: 'Chicken Cutlets', amount: 605, unit: 'g', category: 'poultry' },
+      { name: 'Green Papaya / Sayote', amount: 1, unit: 'pc', category: 'vegetables' },
+      { name: 'Ginger root', amount: 1, unit: 'pc', category: 'condiments' },
+      { name: 'Garlic', amount: 4, unit: 'cloves', category: 'condiments' },
+      { name: 'Onion', amount: 1, unit: 'pc', category: 'condiments' },
+      { name: 'Malunggay or Sili Leaves', amount: 1, unit: 'bunch', category: 'vegetables' }
+    ]
+  },
+  {
+    id: 'rec_hipon',
+    name: 'Sinigang na Hipon (Shrimp Sinigang)',
+    emoji: '🦐',
+    description: 'Light and sour seafood soup loaded with juicy prawns, long beans, and handpicked leafy greens.',
+    isSelected: false,
+    ingredients: [
+      { name: 'Fresh Shrimps (Hipon)', amount: 400, unit: 'g', category: 'seafood' },
+      { name: 'Sinigang Mix Powder', amount: 1, unit: 'pack', category: 'condiments' },
+      { name: 'Radish (Labanos)', amount: 1, unit: 'pc', category: 'vegetables' },
+      { name: 'String Beans (Sitaw)', amount: 1, unit: 'bunch', category: 'vegetables' },
+      { name: 'Kangkong (Water Spinach)', amount: 1, unit: 'bunch', category: 'vegetables' },
+      { name: 'Tomato', amount: 2, unit: 'pcs', category: 'vegetables' },
+      { name: 'Onion', amount: 1, unit: 'pc', category: 'condiments' }
+    ]
+  },
+  {
+    id: 'rec_pinakbet',
+    name: 'Pinakbet (Filipino Vegetable Stew)',
+    emoji: '🍆',
+    description: 'Indigenous steamed local gourds, eggplant, sitaw, and ladyfingers seasoned with crispy pork belly and rich shrimp paste.',
+    isSelected: false,
+    ingredients: [
+      { name: 'Pork Belly (Liempo)', amount: 150, unit: 'g', category: 'meat' },
+      { name: 'Squash (Kalabasa)', amount: 250, unit: 'g', category: 'vegetables' },
+      { name: 'Eggplant (Talong)', amount: 2, unit: 'pcs', category: 'vegetables' },
+      { name: 'String Beans (Sitaw)', amount: 1, unit: 'bunch', category: 'vegetables' },
+      { name: 'Okra (Lady Fingers)', amount: 6, unit: 'pcs', category: 'vegetables' },
+      { name: 'Bitter Melon (Ampalaya)', amount: 1, unit: 'pc', category: 'vegetables' },
+      { name: 'Shrimp Paste (Bagoong Alamang)', amount: 2, unit: 'tbsp', category: 'condiments' }
+    ]
+  },
+  {
+    id: 'rec_monggo',
+    name: 'Ginisang Monggo (Sautéed Mung Beans)',
+    emoji: '🍲',
+    description: 'Savory mung bean broth cooked with baby shrimp or sliced pork, finished with spinach and crushed garlic pork rinds.',
+    isSelected: false,
+    ingredients: [
+      { name: 'Dry Green Mung Beans (Monggo)', amount: 200, unit: 'g', category: 'others' },
+      { name: 'Fresh Shrimps or Pork Cuts', amount: 150, unit: 'g', category: 'meat' },
+      { name: 'Garlic', amount: 4, unit: 'cloves', category: 'condiments' },
+      { name: 'Onion', amount: 1, unit: 'pc', category: 'condiments' },
+      { name: 'Tomato', amount: 1, unit: 'pc', category: 'vegetables' },
+      { name: 'Spinach or Malunggay Leaves', amount: 1, unit: 'bunch', category: 'vegetables' },
+      { name: 'Pork Chicharon (Crushed)', amount: 50, unit: 'g', category: 'others' }
+    ]
+  }
+];
+

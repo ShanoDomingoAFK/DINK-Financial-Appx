@@ -17,15 +17,17 @@ import {
   Menu,
   X,
   Lock,
-  LogOut
+  LogOut,
+  ChefHat
 } from 'lucide-react';
-import { GlobalState, ReceivedIncome, Expense, FundTransfer, CreditCard, Budget, Amortization, PartnerDeductions } from './types';
-import { INITIAL_STATE, formatPeso, today, getMonthKey, parseMoney, CASH_COLORS, formatAsYouTypeHTML } from './utils';
+import { GlobalState, ReceivedIncome, Expense, FundTransfer, CreditCard, Budget, Amortization, PartnerDeductions, Recipe } from './types';
+import { INITIAL_STATE, formatPeso, today, getMonthKey, parseMoney, CASH_COLORS, formatAsYouTypeHTML, DEFAULT_RECIPES } from './utils';
 import Overview from './components/Overview';
 import Transactions from './components/Transactions';
 import CreditCards from './components/CreditCards';
 import BudgetStrategy from './components/BudgetStrategy';
 import IncomeAnalysis from './components/IncomeAnalysis';
+import PalengkePlan from './components/PalengkePlan';
 import Login, { AVATAR_PRESETS } from './components/Login';
 import { supabase, SUPABASE_TABLE, SUPABASE_DOC_ID } from './supabase';
 import SupabaseSync from './components/SupabaseSync';
@@ -109,15 +111,20 @@ export default function App() {
         if (!parsed.transfers) parsed.transfers = [];
         if (!parsed.monthlyBudgets) parsed.monthlyBudgets = {};
         if (!parsed.cashAccounts) parsed.cashAccounts = [];
+        if (!parsed.recipes || !Array.isArray(parsed.recipes) || parsed.recipes.length === 0) {
+          parsed.recipes = DEFAULT_RECIPES;
+        }
         return parsed;
       } catch (e) {
         console.error('Error re-vamping local storage state', e);
       }
     }
-    return INITIAL_STATE;
+    const defaultState = { ...INITIAL_STATE };
+    defaultState.recipes = DEFAULT_RECIPES;
+    return defaultState;
   });
 
-  const [activeTab, setActiveTab] = useState<'overview' | 'transactions' | 'credit' | 'budget' | 'analysis'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'transactions' | 'credit' | 'budget' | 'analysis' | 'palengke'>('overview');
   const [activeModal, setActiveModal] = useState<string | null>(null);
   const [settleCardId, setSettleCardId] = useState<string>('');
   
@@ -791,6 +798,12 @@ export default function App() {
             >
               <Users size={15} /> Income Analysis
             </button>
+            <button 
+              onClick={() => { setActiveTab('palengke'); setSidebarOpen(false); }}
+              className={`w-full flex items-center gap-3 px-4 py-3 text-xs font-bold rounded-xl transition font-display ${activeTab === 'palengke' ? 'bg-[#DDD8CE] text-stone-900 border-l-4 border-emerald-600 font-extrabold' : 'text-stone-500 hover:bg-stone-300/20 hover:text-stone-800'}`}
+            >
+              <ChefHat size={15} /> Palengke Planner
+            </button>
           </nav>
         </div>
 
@@ -905,6 +918,13 @@ export default function App() {
                 updateDeductions={updateDeductions}
                 addIncomeSource={addIncomeSource}
                 deleteIncomeSource={deleteIncomeSource}
+              />
+            )}
+
+            {activeTab === 'palengke' && (
+              <PalengkePlan 
+                state={state}
+                updateRecipes={(recipes: Recipe[]) => setState(prev => ({ ...prev, recipes }))}
               />
             )}
           </motion.div>
