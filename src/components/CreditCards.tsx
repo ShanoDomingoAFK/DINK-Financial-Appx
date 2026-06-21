@@ -191,7 +191,7 @@ export default function CreditCards({
           onClick={() => setActiveModal('addCard')}
           className="bg-stone-900 hover:bg-stone-800 text-stone-50 text-xs font-bold px-4 py-2.5 rounded-xl shadow-sm transition font-display inline-flex items-center gap-1.5 self-start md:self-auto"
         >
-          <CardIcon size={14} /> Add Credit Instrument
+          <CardIcon size={14} /> Add Credit Card
         </button>
       </div>
 

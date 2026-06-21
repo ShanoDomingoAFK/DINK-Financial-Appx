@@ -407,12 +407,6 @@ export default function Transactions({
         </div>
         <div className="flex flex-wrap gap-2">
           <button 
-            onClick={() => setActiveModal('addIncome')}
-            className="bg-stone-50 border border-stone-300 text-stone-700 hover:text-stone-900 text-xs font-bold px-3 py-2 rounded-xl transition shadow-sm font-display flex items-center gap-1.5"
-          >
-            + Log Income
-          </button>
-          <button 
             onClick={() => {
               if (setSettleCardId && state.cards[0]) {
                 setSettleCardId(state.cards[0].id);
@@ -425,15 +419,21 @@ export default function Transactions({
           </button>
           <button 
             onClick={() => setActiveModal('fundTransfer')}
-            className="bg-stone-50 border border-stone-300 text-stone-700 hover:text-stone-900 text-xs font-bold px-3 py-2 rounded-xl transition shadow-sm font-display flex items-center gap-1.5"
+            className="bg-stone-900 border border-stone-900 text-stone-50 hover:bg-stone-850 text-xs font-bold px-3 py-2 rounded-xl transition shadow-sm font-display flex items-center gap-1.5"
           >
             <ArrowRightLeft size={13} /> Fund Transfer
           </button>
           <button 
-            onClick={() => setActiveModal('addExpense')}
-            className="bg-stone-900 text-stone-50 hover:bg-stone-800 text-xs font-bold px-4 py-2 rounded-xl transition shadow-sm font-display flex items-center gap-1.5"
+            onClick={() => setActiveModal('addIncome')}
+            className="bg-emerald-100 border border-emerald-250 text-emerald-800 hover:bg-emerald-200 text-xs font-bold px-3 py-2 rounded-xl transition shadow-sm font-display flex items-center gap-1.5"
           >
-            + Log Expense
+            Income
+          </button>
+          <button 
+            onClick={() => setActiveModal('addExpense')}
+            className="bg-red-100 border border-red-250 text-red-800 hover:bg-red-250 text-xs font-bold px-3 py-2 rounded-xl transition shadow-sm font-display flex items-center gap-1.5"
+          >
+            Expense
           </button>
         </div>
       </div>
