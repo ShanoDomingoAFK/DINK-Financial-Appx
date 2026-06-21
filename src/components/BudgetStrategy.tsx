@@ -32,6 +32,39 @@ import {
   formatAsYouTypeHTML
 } from '../utils';
 
+interface AmountInputInlineProps {
+  value: number;
+  onChange: (val: number) => void;
+  className?: string;
+}
+
+function AmountInputInline({ value, onChange, className = "w-24 text-xs font-extrabold border border-stone-200 rounded-lg p-1 px-2 outline-none focus:border-stone-400 bg-stone-100/50 focus:bg-stone-50 font-display text-right text-emerald-800" }: AmountInputInlineProps) {
+  const [localVal, setLocalVal] = useState(value > 0 ? formatPeso(value) : '');
+
+  React.useEffect(() => {
+    setLocalVal(value > 0 ? formatPeso(value) : '');
+  }, [value]);
+
+  return (
+    <input 
+      type="text" 
+      inputMode="decimal"
+      className={className}
+      value={localVal}
+      onChange={e => {
+        const typing = formatAsYouTypeHTML(e.target.value);
+        setLocalVal(typing);
+        onChange(parseMoney(typing));
+      }}
+      onBlur={() => {
+        const parsed = parseMoney(localVal);
+        setLocalVal(parsed > 0 ? formatPeso(parsed) : '');
+        onChange(parsed);
+      }}
+    />
+  );
+}
+
 interface BudgetStrategyProps {
   state: GlobalState;
   addBudget: (cat: string, limit: number) => void;
@@ -322,15 +355,9 @@ export default function BudgetStrategy({
                 {/* Inline limit input */}
                 <div className="flex items-center gap-1">
                   <span className="text-[10px] text-stone-400 font-extrabold">₱</span>
-                  <input
-                    type="text"
-                    inputMode="decimal"
-                    className="w-24 text-xs font-extrabold border border-stone-200 rounded-lg p-1 px-2 outline-none focus:border-stone-400 bg-stone-100/50 focus:bg-stone-50 font-display"
+                  <AmountInputInline 
                     value={limit}
-                    onChange={e => {
-                      const val = parseMoney(e.target.value);
-                      updateBudgetLimit(b.id, val, selectedMonthKey);
-                    }}
+                    onChange={val => updateBudgetLimit(b.id, val, selectedMonthKey)}
                   />
                 </div>
 

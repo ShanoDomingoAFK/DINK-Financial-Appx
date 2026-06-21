@@ -32,6 +32,24 @@ import {
 } from '../utils';
 import { AVATAR_PRESETS } from './Login';
 
+// Helper component to render amounts with dynamic font sizes so they perfectly fit the space of the box
+function DynamicAmount({ value, prefix = "", isIncoming = true }: { value: number; prefix?: string; isIncoming?: boolean }) {
+  const text = `${prefix}${formatPeso(value)}`;
+  let fontSize = "text-lg";
+  if (text.length > 15) {
+    fontSize = "text-xs";
+  } else if (text.length > 12) {
+    fontSize = "text-sm";
+  } else if (text.length > 9) {
+    fontSize = "text-base";
+  }
+  return (
+    <div className={`${fontSize} font-extrabold ${isIncoming ? 'text-emerald-400' : 'text-red-400'} mt-2 font-display break-all w-full leading-tight transition-all duration-150`} title={text}>
+      {text}
+    </div>
+  );
+}
+
 // Helper to render partner avatar elegantly
 const renderOverviewAvatar = (pic?: string, name?: string, sizeClass: string = "w-10 h-10 text-md") => {
   const isUrl = pic && (pic.startsWith('http') || pic.startsWith('data:image'));
@@ -310,31 +328,17 @@ export default function Overview({ state, onAdjustTarget, onAddCashAccount, onDe
           REAL-TIME ENGINE SYNCHRONIZED
         </div>
       </div>
-
-      {/* Core Summary Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-stone-50 border border-stone-200/80 rounded-2xl p-5 shadow-sm col-span-1 sm:col-span-2 lg:col-span-4">
-          <h3 className="text-xs font-bold uppercase tracking-wider text-stone-500 font-display">Expected Combined Net Yield</h3>
-          <div className="text-2xl font-extrabold text-indigo-700 mt-3 font-display tracking-tight">
-            {formatPeso(expectedMonthlyNetIncome)}
-          </div>
-          <p className="text-xs text-stone-400 font-semibold mt-2">
-            Combined monthly net take-home (Base + Consulting)
-          </p>
-        </div>
-      </div>
-
       {/* Headroom Overview */}
       <div className="bg-stone-900 border border-stone-800 rounded-3xl p-6 md:p-8 text-stone-100 shadow-xl overflow-hidden relative">
         <div className="absolute top-0 right-0 w-80 h-80 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none"></div>
         <div className="absolute bottom-0 left-0 w-80 h-80 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none"></div>
 
         <div className="relative flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6">
-          <div className="space-y-2">
+          <div className="space-y-2 w-full lg:max-w-[70%]">
             <div className="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-400 tracking-wider uppercase font-display bg-emerald-900/30 px-3 py-1 rounded-full border border-emerald-500/20">
               💡 HOUSEHOLD FINANCIAL HEADROOM
             </div>
-            <h2 className={`text-4xl md:text-5xl font-black font-display tracking-tight ${netHouseholdHeadroom >= 0 ? 'text-stone-50' : 'text-red-400'}`}>
+            <h2 className={`text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-black font-display tracking-tight break-all leading-tight ${netHouseholdHeadroom >= 0 ? 'text-stone-50' : 'text-red-400'}`}>
               {formatPeso(netHouseholdHeadroom)}
             </h2>
             <p className="text-stone-400 font-medium text-xs md:text-sm max-w-2xl leading-relaxed">
@@ -358,14 +362,12 @@ export default function Overview({ state, onAdjustTarget, onAddCashAccount, onDe
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 mt-8 pt-6 border-t border-stone-800">
           <button 
             onClick={() => setDetailModal('cash')}
-            className="bg-stone-900/50 hover:bg-stone-800/60 border border-stone-800/80 rounded-2xl p-4 text-left transition duration-150 group"
+            className="bg-stone-900/50 hover:bg-stone-800/60 border border-stone-800/80 rounded-2xl p-4 text-left transition duration-150 group flex flex-col justify-between overflow-hidden"
           >
             <div className="text-xs font-bold text-stone-500 font-display uppercase tracking-wider group-hover:text-stone-300 flex items-center gap-1">
               Cash on Hand <ArrowRight size={10} className="text-stone-600 group-hover:text-stone-400" />
             </div>
-            <div className="text-lg font-extrabold text-emerald-400 mt-2 font-display">
-              +{formatPeso(cashOnHandTotal)}
-            </div>
+            <DynamicAmount value={cashOnHandTotal} prefix="+" isIncoming={true} />
             <div className="text-[10px] text-stone-500 font-semibold mt-1">
               Liquidity assets total
             </div>
@@ -373,14 +375,12 @@ export default function Overview({ state, onAdjustTarget, onAddCashAccount, onDe
 
           <button 
             onClick={() => setDetailModal('salary')}
-            className="bg-stone-900/50 hover:bg-stone-800/60 border border-stone-800/80 rounded-2xl p-4 text-left transition duration-150 group"
+            className="bg-stone-900/50 hover:bg-stone-800/60 border border-stone-800/80 rounded-2xl p-4 text-left transition duration-150 group flex flex-col justify-between overflow-hidden"
           >
             <div className="text-xs font-bold text-stone-500 font-display uppercase tracking-wider group-hover:text-stone-300 flex items-center gap-1">
               Unlogged Salary <ArrowRight size={10} className="text-stone-600 group-hover:text-stone-400" />
             </div>
-            <div className="text-lg font-extrabold text-emerald-400 mt-2 font-display">
-              +{formatPeso(salaryToReceive)}
-            </div>
+            <DynamicAmount value={salaryToReceive} prefix="+" isIncoming={true} />
             <div className="text-[10px] text-stone-500 font-semibold mt-1">
               Outstanding base pay
             </div>
@@ -388,14 +388,12 @@ export default function Overview({ state, onAdjustTarget, onAddCashAccount, onDe
 
           <button 
             onClick={() => setDetailModal('additional')}
-            className="bg-stone-900/50 hover:bg-stone-800/60 border border-stone-800/80 rounded-2xl p-4 text-left transition duration-150 group"
+            className="bg-stone-900/50 hover:bg-stone-800/60 border border-stone-800/80 rounded-2xl p-4 text-left transition duration-150 group flex flex-col justify-between overflow-hidden"
           >
             <div className="text-xs font-bold text-stone-500 font-display uppercase tracking-wider group-hover:text-stone-300 flex items-center gap-1">
               Unlogged Consulting <ArrowRight size={10} className="text-stone-600 group-hover:text-stone-400" />
             </div>
-            <div className="text-lg font-extrabold text-emerald-400 mt-2 font-display">
-              +{formatPeso(additionalIncomeToReceive)}
-            </div>
+            <DynamicAmount value={additionalIncomeToReceive} prefix="+" isIncoming={true} />
             <div className="text-[10px] text-stone-500 font-semibold mt-1">
               Secondary inbound streams
             </div>
@@ -403,31 +401,27 @@ export default function Overview({ state, onAdjustTarget, onAddCashAccount, onDe
 
           <button 
             onClick={() => setDetailModal('budget')}
-            className="bg-stone-900/50 hover:bg-stone-800/60 border border-stone-800/80 rounded-2xl p-4 text-left transition duration-150 group"
+            className="bg-stone-900/50 hover:bg-stone-800/60 border border-stone-800/80 rounded-2xl p-4 text-left transition duration-150 group flex flex-col justify-between overflow-hidden"
           >
             <div className="text-xs font-bold text-stone-500 font-display uppercase tracking-wider group-hover:text-stone-300 flex items-center gap-1">
               Remaining Budget <ArrowRight size={10} className="text-stone-600 group-hover:text-stone-400" />
             </div>
-            <div className="text-lg font-extrabold text-red-400 mt-2 font-display">
-              −{formatPeso(remainingBudgetTotal)}
-            </div>
+            <DynamicAmount value={remainingBudgetTotal} prefix="−" isIncoming={false} />
             <div className="text-[10px] text-stone-500 font-semibold mt-1">
-              Unused allowable monthly caps
+              Unused allowable caps
             </div>
           </button>
 
           <button 
             onClick={() => setDetailModal('credit')}
-            className="bg-stone-900/50 hover:bg-stone-800/60 border border-stone-805/80 rounded-2xl p-4 text-col text-left transition duration-150 group col-span-2 md:col-span-1"
+            className="bg-stone-900/50 hover:bg-stone-800/60 border border-stone-805/80 rounded-2xl p-4 text-left transition duration-150 group col-span-2 md:col-span-1 flex flex-col justify-between overflow-hidden"
           >
             <div className="text-xs font-bold text-stone-500 font-display uppercase tracking-wider group-hover:text-stone-300 flex items-center gap-1">
               Credit Cards Owed <ArrowRight size={10} className="text-stone-600 group-hover:text-stone-400" />
             </div>
-            <div className="text-lg font-extrabold text-red-400 mt-2 font-display">
-              −{formatPeso(creditCardTotalOwed)}
-            </div>
+            <DynamicAmount value={creditCardTotalOwed} prefix="−" isIncoming={false} />
             <div className="text-[10px] text-stone-500 font-semibold mt-1">
-              Dynamic card liability total
+              Card liability total
             </div>
           </button>
         </div>

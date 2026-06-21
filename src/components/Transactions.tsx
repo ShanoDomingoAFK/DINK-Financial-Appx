@@ -339,7 +339,7 @@ export default function Transactions({
       {/* Upper toolbar */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-black font-display text-stone-900 tracking-tight">Transaction Ledger</h1>
+          <h1 className="text-2xl font-black font-display text-stone-900 tracking-tight">Transactions</h1>
           <p className="text-stone-500 font-semibold text-xs mt-0.5">Central register to track, trace, and manage dynamic cash flow indicators</p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -472,39 +472,10 @@ export default function Transactions({
         </button>
       </div>
 
-      {/* Dynamic Filter Aggregation Stat Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="bg-stone-50 border border-stone-200 rounded-2xl p-4 flex justify-between items-center">
-          <div>
-            <span className="text-[10px] font-extrabold uppercase tracking-widest text-stone-400 font-display">Filtered Receipts</span>
-            <div className="text-xl font-black text-emerald-800 font-display mt-0.5">{formatPeso(filteredIncomeSum)}</div>
-          </div>
-          <TrendingUp className="text-emerald-600/40" size={24} />
-        </div>
-
-        <div className="bg-stone-50 border border-stone-200 rounded-2xl p-4 flex justify-between items-center">
-          <div>
-            <span className="text-[10px] font-extrabold uppercase tracking-widest text-stone-400 font-display">Filtered Spending</span>
-            <div className="text-xl font-black text-red-800 font-display mt-0.5">{formatPeso(filteredSpentSum)}</div>
-          </div>
-          <TrendingDown className="text-red-600/40" size={24} />
-        </div>
-
-        <div className="bg-stone-50 border border-stone-200 rounded-2xl p-4 flex justify-between items-center">
-          <div>
-            <span className="text-[10px] font-extrabold uppercase tracking-widest text-stone-400 font-display">Net Segment Balance</span>
-            <div className={`text-xl font-black font-display mt-0.5 ${filteredNetBalance >= 0 ? 'text-emerald-700' : 'text-red-700'}`}>
-              {formatPeso(filteredNetBalance)}
-            </div>
-          </div>
-          <ArrowRightLeft className="text-stone-600/30" size={20} />
-        </div>
-      </div>
-
       {/* Ledger Table Section */}
       <div className="bg-stone-50 border border-stone-200 rounded-2xl p-5 shadow-sm overflow-hidden">
         <div className="flex justify-between items-center mb-4">
-          <h3 className="text-xs font-extrabold uppercase tracking-widest text-stone-500 font-display">Segment Ledger Entries</h3>
+          <h3 className="text-xs font-extrabold uppercase tracking-widest text-stone-500 font-display">Transactions</h3>
           <span className="text-xs bg-stone-200 text-stone-700 font-bold px-2.5 py-1 rounded-full font-display">
             {filteredRows.length} transactions match
           </span>

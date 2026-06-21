@@ -764,7 +764,7 @@ export default function App() {
               onClick={() => { setActiveTab('transactions'); setSidebarOpen(false); }}
               className={`w-full flex items-center gap-3 px-4 py-3 text-xs font-bold rounded-xl transition font-display ${activeTab === 'transactions' ? 'bg-[#DDD8CE] text-stone-900 border-l-4 border-emerald-600 font-extrabold' : 'text-stone-500 hover:bg-stone-300/20 hover:text-stone-800'}`}
             >
-              <Wallet size={15} /> Ledger Entries
+              <Wallet size={15} /> Transactions
             </button>
             <button 
               onClick={() => { setActiveTab('credit'); setSidebarOpen(false); }}
@@ -869,6 +869,7 @@ export default function App() {
                 triggerSettleCard={(cardId) => {
                   setSettleCardId(cardId);
                   setActiveModal('settleCard');
+                  setActiveTab('transactions');
                 }}
                 activeModal={activeModal}
                 setActiveModal={setActiveModal}

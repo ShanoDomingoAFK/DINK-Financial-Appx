@@ -15,7 +15,43 @@ import {
   Percent
 } from 'lucide-react';
 import { GlobalState, IncomeStream, PartnerDeductions } from '../types';
-import { formatPeso, parseMoney } from '../utils';
+import { formatPeso, parseMoney, formatAsYouTypeHTML } from '../utils';
+
+interface AmountInputProps {
+  value: number;
+  onChange: (val: number) => void;
+  className?: string;
+  placeholder?: string;
+}
+
+function AmountInput({ value, onChange, className = "w-24 text-right font-extrabold border border-stone-200 rounded-lg p-1 px-2.5 outline-none bg-stone-50 font-display", placeholder }: AmountInputProps) {
+  const [localVal, setLocalVal] = useState(value > 0 ? formatPeso(value) : '');
+
+  React.useEffect(() => {
+    // Sync local state if external state updates
+    setLocalVal(value > 0 ? formatPeso(value) : '');
+  }, [value]);
+
+  return (
+    <input 
+      type="text" 
+      inputMode="decimal"
+      className={className}
+      placeholder={placeholder || "₱ 0.00"}
+      value={localVal}
+      onChange={e => {
+        const typing = formatAsYouTypeHTML(e.target.value);
+        setLocalVal(typing);
+        onChange(parseMoney(typing));
+      }}
+      onBlur={() => {
+        const parsed = parseMoney(localVal);
+        setLocalVal(parsed > 0 ? formatPeso(parsed) : '');
+        onChange(parsed);
+      }}
+    />
+  );
+}
 
 interface IncomeAnalysisProps {
   state: GlobalState;
@@ -104,12 +140,10 @@ export default function IncomeAnalysis({
               <span className="font-display">Base Structural Salary</span>
               <div className="flex items-center gap-1.5">
                 <span className="text-stone-400 font-bold">₱</span>
-                <input 
-                  type="text" 
-                  inputMode="decimal"
-                  className="w-32 text-xs font-black border border-stone-200 rounded-lg p-1.5 px-2 px-2.5 outline-none focus:border-stone-400 bg-stone-100/50 focus:bg-stone-50 text-right font-display"
+                <AmountInput 
                   value={state.salaries.you}
-                  onChange={e => updateSalary('you', parseMoney(e.target.value))}
+                  onChange={val => updateSalary('you', val)}
+                  className="w-32 text-xs font-black border border-stone-200 rounded-lg p-1.5 px-2 px-2.5 outline-none focus:border-stone-400 bg-stone-100/50 focus:bg-stone-50 text-right font-display"
                 />
               </div>
             </div>
@@ -132,45 +166,34 @@ export default function IncomeAnalysis({
               
               <div className="flex justify-between items-center">
                 <span>SSS Premium Contribution</span>
-                <input 
-                  type="text" 
-                  inputMode="decimal"
-                  className="w-24 text-right font-extrabold border border-stone-200 rounded-lg p-1 px-2.5 outline-none bg-stone-50"
+                <AmountInput 
                   value={aidenMetrics.sss}
-                  onChange={e => updateDeductions('you', 'sss', parseMoney(e.target.value))}
+                  onChange={val => updateDeductions('you', 'sss', val)}
                 />
               </div>
 
               <div className="flex justify-between items-center">
                 <span>PhilHealth (PHIC) Premium</span>
-                <input 
-                  type="text" 
-                  inputMode="decimal"
-                  className="w-24 text-right font-extrabold border border-stone-200 rounded-lg p-1 px-2.5 outline-none bg-stone-50"
+                <AmountInput 
                   value={aidenMetrics.phic}
-                  onChange={e => updateDeductions('you', 'phic', parseMoney(e.target.value))}
+                  onChange={val => updateDeductions('you', 'phic', val)}
                 />
               </div>
 
               <div className="flex justify-between items-center">
                 <span>Pag-IBIG (HDMF) Premium</span>
-                <input 
-                  type="text" 
-                  inputMode="decimal"
-                  className="w-24 text-right font-extrabold border border-stone-200 rounded-lg p-1 px-2.5 outline-none bg-stone-50"
+                <AmountInput 
                   value={aidenMetrics.hdmf}
-                  onChange={e => updateDeductions('you', 'hdmf', parseMoney(e.target.value))}
+                  onChange={val => updateDeductions('you', 'hdmf', val)}
                 />
               </div>
 
               <div className="flex justify-between items-center pt-2 border-t border-dashed border-stone-200">
                 <span className="font-extrabold text-stone-700">BIR Withholding Tax</span>
-                <input 
-                  type="text" 
-                  inputMode="decimal"
-                  className="w-24 text-right font-black border border-stone-200 rounded-lg p-1 px-2.5 outline-none bg-stone-50 text-red-750 font-display text-red-800"
+                <AmountInput 
                   value={aidenMetrics.tax}
-                  onChange={e => updateDeductions('you', 'tax', parseMoney(e.target.value))}
+                  onChange={val => updateDeductions('you', 'tax', val)}
+                  className="w-24 text-right font-black border border-stone-200 rounded-lg p-1 px-2.5 outline-none bg-stone-50 text-red-800 font-display"
                 />
               </div>
             </div>
@@ -200,12 +223,10 @@ export default function IncomeAnalysis({
               <span className="font-display">Base Structural Salary</span>
               <div className="flex items-center gap-1.5">
                 <span className="text-stone-400 font-bold">₱</span>
-                <input 
-                  type="text" 
-                  inputMode="decimal"
-                  className="w-32 text-xs font-black border border-stone-200 rounded-lg p-1.5 px-2.5 outline-none focus:border-stone-400 bg-stone-100/50 focus:bg-stone-50 text-right font-display"
+                <AmountInput 
                   value={state.salaries.partner}
-                  onChange={e => updateSalary('partner', parseMoney(e.target.value))}
+                  onChange={val => updateSalary('partner', val)}
+                  className="w-32 text-xs font-black border border-stone-200 rounded-lg p-1.5 px-2.5 outline-none focus:border-stone-400 bg-stone-100/50 focus:bg-stone-50 text-right font-display"
                 />
               </div>
             </div>
@@ -228,45 +249,34 @@ export default function IncomeAnalysis({
               
               <div className="flex justify-between items-center">
                 <span>SSS Premium Contribution</span>
-                <input 
-                  type="text" 
-                  inputMode="decimal"
-                  className="w-24 text-right font-extrabold border border-stone-200 rounded-lg p-1 px-2.5 outline-none bg-stone-50"
+                <AmountInput 
                   value={chloeMetrics.sss}
-                  onChange={e => updateDeductions('partner', 'sss', parseMoney(e.target.value))}
+                  onChange={val => updateDeductions('partner', 'sss', val)}
                 />
               </div>
 
               <div className="flex justify-between items-center">
                 <span>PhilHealth (PHIC) Premium</span>
-                <input 
-                  type="text" 
-                  inputMode="decimal"
-                  className="w-24 text-right font-extrabold border border-stone-200 rounded-lg p-1 px-2.5 outline-none bg-stone-50"
+                <AmountInput 
                   value={chloeMetrics.phic}
-                  onChange={e => updateDeductions('partner', 'phic', parseMoney(e.target.value))}
+                  onChange={val => updateDeductions('partner', 'phic', val)}
                 />
               </div>
 
               <div className="flex justify-between items-center">
                 <span>Pag-IBIG (HDMF) Premium</span>
-                <input 
-                  type="text" 
-                  inputMode="decimal"
-                  className="w-24 text-right font-extrabold border border-stone-200 rounded-lg p-1 px-2.5 outline-none bg-stone-50"
+                <AmountInput 
                   value={chloeMetrics.hdmf}
-                  onChange={e => updateDeductions('partner', 'hdmf', parseMoney(e.target.value))}
+                  onChange={val => updateDeductions('partner', 'hdmf', val)}
                 />
               </div>
 
               <div className="flex justify-between items-center pt-2 border-t border-dashed border-stone-200">
                 <span className="font-extrabold text-stone-700">BIR Withholding Tax</span>
-                <input 
-                  type="text" 
-                  inputMode="decimal"
-                  className="w-24 text-right font-black border border-stone-200 rounded-lg p-1 px-2.5 outline-none bg-stone-50 text-red-750 font-display text-red-800"
+                <AmountInput 
                   value={chloeMetrics.tax}
-                  onChange={e => updateDeductions('partner', 'tax', parseMoney(e.target.value))}
+                  onChange={val => updateDeductions('partner', 'tax', val)}
+                  className="w-24 text-right font-black border border-stone-200 rounded-lg p-1 px-2.5 outline-none bg-stone-50 text-red-800 font-display"
                 />
               </div>
             </div>
@@ -311,9 +321,13 @@ export default function IncomeAnalysis({
               type="text" 
               inputMode="decimal"
               className="w-full text-xs font-black border border-stone-250 rounded-xl p-2.5 bg-stone-100/50 outline-none focus:border-stone-400 bg-stone-50 text-right font-display text-emerald-855"
-              placeholder="₱ 10000.00"
+              placeholder="₱ 10,000.00"
               value={streamAmt}
-              onChange={e => setStreamAmt(e.target.value)}
+              onChange={e => setStreamAmt(formatAsYouTypeHTML(e.target.value))}
+              onBlur={e => {
+                const num = parseMoney(e.target.value);
+                setStreamAmt(num > 0 ? formatPeso(num) : '');
+              }}
               required
             />
           </div>
