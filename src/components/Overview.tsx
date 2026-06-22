@@ -207,7 +207,15 @@ export default function Overview({ state, onAdjustTarget, onAddCashAccount, onDe
       .filter(e => e.type === 'card_payment' && e.cardPaymentCardId === cardId)
       .reduce((sum, e) => sum + e.amount, 0);
 
-    return Math.max(0, manualOutstanding + itemizedCharges + recurringCharges - totalSettled);
+    const transfersIntoCard = state.transfers
+      .filter(t => t.toCashAccountId === cardId)
+      .reduce((sum, t) => sum + t.amount, 0);
+
+    const transfersOutOfCard = state.transfers
+      .filter(t => t.fromCashAccountId === cardId)
+      .reduce((sum, t) => sum + t.amount, 0);
+
+    return Math.max(0, manualOutstanding + itemizedCharges + recurringCharges + transfersOutOfCard - totalSettled - transfersIntoCard);
   };
 
   const creditCardTotalOwed = state.cards.reduce((sum, card) => sum + getCardOwedTotal(card.id), 0);
@@ -394,7 +402,7 @@ export default function Overview({ state, onAdjustTarget, onAddCashAccount, onDe
             className="bg-stone-900/50 hover:bg-stone-800/60 border border-stone-800/80 rounded-2xl p-4 text-left transition duration-150 group flex flex-col justify-between overflow-hidden"
           >
             <div className="text-xs font-bold text-stone-500 font-display uppercase tracking-wider group-hover:text-stone-300 flex items-center gap-1">
-              Unlogged Consulting <ArrowRight size={10} className="text-stone-600 group-hover:text-stone-400" />
+              Unlogged Secondary Income <ArrowRight size={10} className="text-stone-600 group-hover:text-stone-400" />
             </div>
             <DynamicAmount value={additionalIncomeToReceive} isIncoming={true} />
             <div className="text-[10px] text-stone-500 font-semibold mt-1">
@@ -542,7 +550,7 @@ export default function Overview({ state, onAdjustTarget, onAddCashAccount, onDe
                 <h3 className="text-lg font-extrabold text-stone-900 tracking-tight font-display">
                   {detailModal === 'cash' ? 'Liquid Cash Breakdown' :
                    detailModal === 'salary' ? 'Expected Salary Breakdown' :
-                   detailModal === 'additional' ? 'Expected Consulting Breakdown' :
+                   detailModal === 'additional' ? 'Expected Secondary Income Breakdown' :
                    detailModal === 'budget' ? 'Allowable Budget Cap Remaining' :
                    'Credit Card Exposures'}
                 </h3>
@@ -645,7 +653,7 @@ export default function Overview({ state, onAdjustTarget, onAddCashAccount, onDe
               <div className="space-y-4 text-xs">
                 <div className="bg-stone-200/30 p-4 rounded-xl space-y-2">
                   <div className="flex justify-between font-bold">
-                    <span>Assigned Consulting Channels (Expected)</span>
+                    <span>Assigned Secondary Income Channels (Expected)</span>
                     <span className="text-emerald-800 font-black">{formatPeso(expectedAdditionalIncome)}</span>
                   </div>
                   {state.incomeSources.map(s => (
@@ -655,12 +663,12 @@ export default function Overview({ state, onAdjustTarget, onAddCashAccount, onDe
                     </div>
                   ))}
                   {state.incomeSources.length === 0 && (
-                    <div className="text-stone-400 italic text-center py-2">No additional consulting channels defined</div>
+                    <div className="text-stone-400 italic text-center py-2">No secondary income channels defined</div>
                   )}
                 </div>
 
                 <div className="p-3 bg-red-50/50 text-red-900 rounded-xl border border-red-100 flex justify-between">
-                  <span className="font-bold">Consulting Streams Already Logged this Month</span>
+                  <span className="font-bold">Secondary Income Already Logged this Month</span>
                   <span className="font-black">{formatPeso(additionalReceivedThisMonth)}</span>
                 </div>
 

@@ -106,11 +106,13 @@ export default function Transactions({
   // Helper payment source visuals resolver
   const getPaymentSourceVisual = (tx: any, rowType: string) => {
     if (rowType === 'transfer') {
-      const fromAcc = state.cashAccounts.find(a => a.id === tx.fromCashAccountId);
-      const toAcc = state.cashAccounts.find(a => a.id === tx.toCashAccountId);
+      const fromAcc = state.cashAccounts.find(a => a.id === tx.fromCashAccountId) || state.cards.find(c => c.id === tx.fromCashAccountId);
+      const toAcc = state.cashAccounts.find(a => a.id === tx.toCashAccountId) || state.cards.find(c => c.id === tx.toCashAccountId);
+      const isFromCard = state.cards.some(c => c.id === tx.fromCashAccountId);
+      const isToCard = state.cards.some(c => c.id === tx.toCashAccountId);
       return {
         typeLabel: 'Fund Transfer',
-        name: `${fromAcc ? fromAcc.name : 'Unknown'} → ${toAcc ? toAcc.name : 'Unknown'}`,
+        name: `${isFromCard ? '💳' : '💵'} ${fromAcc ? fromAcc.name : 'Unknown'} → ${isToCard ? '💳' : '💵'} ${toAcc ? toAcc.name : 'Unknown'}`,
         color: fromAcc ? fromAcc.color : '#4F54D4'
       };
     }
@@ -288,7 +290,7 @@ export default function Transactions({
     e.preventDefault();
     const amt = parseMoney(transferForm.amount);
     if (amt <= 0 || !transferForm.fromId || !transferForm.toId || transferForm.fromId === transferForm.toId) {
-      alert('Select distinct cash accounts to transfer capital.');
+      alert('Select distinct accounts to transfer capital.');
       return;
     }
     addTransfer(
@@ -359,7 +361,7 @@ export default function Transactions({
       });
     } else if (editForm.rowType === 'transfer') {
       if (!editForm.fromId || !editForm.toId || editForm.fromId === editForm.toId) {
-        alert('Select distinct cash accounts to transfer capital.');
+        alert('Select distinct accounts to transfer capital.');
         return;
       }
       updateTransfer(editForm.id, {
@@ -394,7 +396,15 @@ export default function Transactions({
       .filter(e => e.type === 'card_payment' && e.cardPaymentCardId === cardId)
       .reduce((sum, e) => sum + e.amount, 0);
 
-    return Math.max(0, manualOutstanding + itemizedCharges + recurringCharges - totalSettled);
+    const transfersIntoCard = state.transfers
+      .filter(t => t.toCashAccountId === cardId)
+      .reduce((sum, t) => sum + t.amount, 0);
+
+    const transfersOutOfCard = state.transfers
+      .filter(t => t.fromCashAccountId === cardId)
+      .reduce((sum, t) => sum + t.amount, 0);
+
+    return Math.max(0, manualOutstanding + itemizedCharges + recurringCharges + transfersOutOfCard - totalSettled - transfersIntoCard);
   };
 
   return (
@@ -905,7 +915,7 @@ export default function Transactions({
 
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-1.5">
-                      <label className="text-[10px] font-extrabold uppercase tracking-wider text-stone-400 font-display">Capital Transferred (₱)</label>
+                      <label className="text-[10px] font-extrabold uppercase tracking-wider text-stone-400 font-display">Amount</label>
                       <input 
                         type="text" 
                         inputMode="decimal"
@@ -938,17 +948,26 @@ export default function Transactions({
 
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-1.5">
-                      <label className="text-[10px] font-extrabold uppercase tracking-wider text-stone-400 font-display">Debit Source (From)</label>
+                      <label className="text-[10px] font-extrabold uppercase tracking-wider text-stone-400 font-display">FROM</label>
                       <select 
                         className="w-full text-xs font-semibold border border-stone-200 rounded-xl p-2.5 bg-stone-100/50 outline-none focus:border-stone-400"
                         value={transferForm.fromId}
                         onChange={e => setTransferForm(prev => ({ ...prev, fromId: e.target.value }))}
                         required
                       >
-                        <option value="" disabled>Select source cash pool</option>
-                        {state.cashAccounts.map(a => (
-                          <option key={a.id} value={a.id}>Deb: {a.name}</option>
-                        ))}
+                        <option value="" disabled>Select source account</option>
+                        <optgroup label="💵 Cash Accounts">
+                          {state.cashAccounts.map(a => (
+                            <option key={a.id} value={a.id}>Deb: {a.name}</option>
+                          ))}
+                        </optgroup>
+                        {state.cards.length > 0 && (
+                          <optgroup label="💳 Credit Cards">
+                            {state.cards.map(c => (
+                              <option key={c.id} value={c.id}>Deb: {c.name}</option>
+                            ))}
+                          </optgroup>
+                        )}
                       </select>
                     </div>
 
@@ -960,16 +979,25 @@ export default function Transactions({
                         onChange={e => setTransferForm(prev => ({ ...prev, toId: e.target.value }))}
                         required
                       >
-                        <option value="" disabled>Select dest cash pool</option>
-                        {state.cashAccounts.map(a => (
-                          <option key={a.id} value={a.id}>Cre: {a.name}</option>
-                        ))}
+                        <option value="" disabled>Select dest account</option>
+                        <optgroup label="💵 Cash Accounts">
+                          {state.cashAccounts.map(a => (
+                            <option key={a.id} value={a.id}>Cre: {a.name}</option>
+                          ))}
+                        </optgroup>
+                        {state.cards.length > 0 && (
+                          <optgroup label="💳 Credit Cards">
+                            {state.cards.map(c => (
+                              <option key={c.id} value={c.id}>Cre: {c.name}</option>
+                            ))}
+                          </optgroup>
+                        )}
                       </select>
                     </div>
                   </div>
 
                   <p className="text-[10px] text-stone-400 font-semibold leading-relaxed p-2.5 bg-stone-200/40 rounded-xl border border-stone-200">
-                    💡 Internal transfers do not count towards expenses, budgets, savings rates, or incomes. They merely offset balances between asset pools.
+                    💡 Internal transfers do not count towards expenses, budgets, savings rates, or incomes. They merely offset balances between asset pools or pay off/draw from credit instruments.
                   </p>
 
                   <div className="flex gap-2 justify-end pt-4 border-t border-stone-200/80">
@@ -1229,7 +1257,7 @@ export default function Transactions({
                       )}
                     </div>
 
-                    <div className="space-y-1.5">
+                    <div className="space-y-1.5 mt-3">
                       <label className="text-[10px] font-extrabold uppercase tracking-wider text-stone-400 font-display">Payment Vehicle (Source)</label>
                       <select 
                         className="w-full text-xs font-semibold border border-stone-200 rounded-xl p-2.5 bg-stone-100/50 outline-none focus:border-stone-400 font-display"
@@ -1260,30 +1288,48 @@ export default function Transactions({
                   <>
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-1.5">
-                        <label className="text-[10px] font-extrabold uppercase tracking-wider text-stone-400 font-display">Debit Source (From)</label>
+                        <label className="text-[10px] font-extrabold uppercase tracking-wider text-stone-400 font-display">FROM</label>
                         <select 
                           className="w-full text-xs font-semibold border border-stone-200 rounded-xl p-2.5 bg-stone-100/50 outline-none focus:border-stone-400"
                           value={editForm.fromId}
                           onChange={e => setEditForm(prev => prev ? ({ ...prev, fromId: e.target.value }) : null)}
                           required
                         >
-                          {state.cashAccounts.map(a => (
-                            <option key={a.id} value={a.id}>Deb: {a.name}</option>
-                          ))}
+                          <optgroup label="💵 Cash Accounts">
+                            {state.cashAccounts.map(a => (
+                              <option key={a.id} value={a.id}>Deb: {a.name}</option>
+                            ))}
+                          </optgroup>
+                          {state.cards.length > 0 && (
+                            <optgroup label="💳 Credit Cards">
+                              {state.cards.map(c => (
+                                <option key={c.id} value={c.id}>Deb: {c.name}</option>
+                              ))}
+                            </optgroup>
+                          )}
                         </select>
                       </div>
 
                       <div className="space-y-1.5">
                         <label className="text-[10px] font-extrabold uppercase tracking-wider text-stone-400 font-display">Credit Dest (To)</label>
                         <select 
-                          className="w-full text-xs font-semibold border border-stone-200 rounded-xl p-2.5 bg-stone-100/50 outline-none focus:border-stone-400"
+                          className="w-full text-xs font-semibold border border-stone-200 rounded-xl p-2.5 bg-[#FAF8F5]/80 outline-none focus:border-stone-400"
                           value={editForm.toId}
                           onChange={e => setEditForm(prev => prev ? ({ ...prev, toId: e.target.value }) : null)}
                           required
                         >
-                          {state.cashAccounts.map(a => (
-                            <option key={a.id} value={a.id}>Cre: {a.name}</option>
-                          ))}
+                          <optgroup label="💵 Cash Accounts">
+                            {state.cashAccounts.map(a => (
+                              <option key={a.id} value={a.id}>Cre: {a.name}</option>
+                            ))}
+                          </optgroup>
+                          {state.cards.length > 0 && (
+                            <optgroup label="💳 Credit Cards">
+                              {state.cards.map(c => (
+                                <option key={c.id} value={c.id}>Cre: {c.name}</option>
+                              ))}
+                            </optgroup>
+                          )}
                         </select>
                       </div>
                     </div>

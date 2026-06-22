@@ -71,7 +71,6 @@ export default function CreditCards({
     const recurringCharges = state.amortizations
       .filter(item => item.recurringCardId === cardId)
       .reduce((sum, item) => {
-        const status = getCardDueInfo(card.dueDay); // generic check or active monthly
         return sum + (item.monthlyAmount); // Simple approximation of active due
       }, 0);
 
@@ -79,7 +78,15 @@ export default function CreditCards({
       .filter(e => e.type === 'card_payment' && e.cardPaymentCardId === cardId)
       .reduce((sum, e) => sum + e.amount, 0);
 
-    return Math.max(0, manualOutstanding + itemizedCharges + recurringCharges - totalSettled);
+    const transfersIntoCard = state.transfers
+      .filter(t => t.toCashAccountId === cardId)
+      .reduce((sum, t) => sum + t.amount, 0);
+
+    const transfersOutOfCard = state.transfers
+      .filter(t => t.fromCashAccountId === cardId)
+      .reduce((sum, t) => sum + t.amount, 0);
+
+    return Math.max(0, manualOutstanding + itemizedCharges + recurringCharges + transfersOutOfCard - totalSettled - transfersIntoCard);
   };
 
   // Get list of transactions logged on card

@@ -307,7 +307,7 @@ export default function IncomeAnalysis({
       <div className="bg-stone-50 border border-stone-200 rounded-3xl p-6 shadow-sm space-y-5">
         <div>
           <h3 className="text-base font-extrabold text-stone-900 font-display tracking-tight flex items-center gap-1.5">
-            <Briefcase size={16} className="text-stone-600" /> Secondary Free Income Mapping Portfolio
+            <Briefcase size={16} className="text-stone-600" /> Secondary Income
           </h3>
           <p className="text-xs text-stone-400 font-semibold mt-0.5 leading-relaxed">
             Incorporate architectural consultancy, yoga certifications, allowances, or other third-party checking inflows.
