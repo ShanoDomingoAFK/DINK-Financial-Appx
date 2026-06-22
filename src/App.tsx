@@ -160,11 +160,8 @@ export default function App() {
 
       if (error) {
         if (error.code === 'PGRST116') {
-          // Record not found (table exists but vacant), let's push local state as initial
-          const { error: upsertError } = await supabase
-            .from(SUPABASE_TABLE)
-            .upsert({ id: docId, state: state, updated_at: new Date().toISOString() });
-          if (upsertError) throw upsertError;
+          // Record not found (table exists but vacant). Do NOT destructively upsert local state.
+          // Just mark as synced and allow them to start fresh safely.
           setSyncStatus('synced');
           hasFetchedFromSupabaseRef.current = true;
         } else {

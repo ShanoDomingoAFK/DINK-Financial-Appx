@@ -26,11 +26,18 @@ export default function SupabaseSync({ syncStatus, onPull, onPush, localBackupSi
   const [showModal, setShowModal] = useState(false);
   const [copied, setCopied] = useState(false);
 
-  const sqlCode = `-- 1. Create the table to store your uniform DINK finance state
+  const sqlCode = `-- 1. Create the tables to store your secure DINK finance state and backups
 CREATE TABLE IF NOT EXISTS ${SUPABASE_TABLE} (
   id text PRIMARY KEY,
   state jsonb NOT NULL,
   updated_at timestamp with time zone DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS dink_finance_v4_state_backups (
+  backup_id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+  document_id text NOT NULL,
+  state_snapshot jsonb NOT NULL,
+  backed_up_at timestamp with time zone DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 
 -- 2. Create the table to store 6-digit User secure PINs
@@ -44,14 +51,23 @@ CREATE TABLE IF NOT EXISTS dink_user_pins (
 -- 3. Turn off Row Level Security (RLS) for simple public custom security lookups
 ALTER TABLE ${SUPABASE_TABLE} DISABLE ROW LEVEL SECURITY;
 ALTER TABLE dink_user_pins DISABLE ROW LEVEL SECURITY;
+ALTER TABLE dink_finance_v4_state_backups DISABLE ROW LEVEL SECURITY;
 
--- 4. (Optional) Or if keeping RLS enabled, run this to let anonymous users read & write state
--- CREATE POLICY "Allow public read and write" 
--- ON ${SUPABASE_TABLE} 
--- FOR ALL 
--- TO anon 
--- USING (true) 
--- WITH CHECK (true);`;
+-- 4. Set up an automatic trigger to permanently backup data before overwriting
+CREATE OR REPLACE FUNCTION backup_dink_state()
+RETURNS TRIGGER AS $$
+BEGIN
+    INSERT INTO dink_finance_v4_state_backups (document_id, state_snapshot)
+    VALUES (OLD.id, OLD.state);
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trg_backup_dink_state ON ${SUPABASE_TABLE};
+CREATE TRIGGER trg_backup_dink_state
+BEFORE UPDATE ON ${SUPABASE_TABLE}
+FOR EACH ROW
+EXECUTE FUNCTION backup_dink_state();`;
 
   const copySqlToClipboard = () => {
     navigator.clipboard.writeText(sqlCode);

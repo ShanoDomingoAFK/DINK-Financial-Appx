@@ -220,16 +220,17 @@ export default function Login({ onUnlock, partnerNames }: LoginProps) {
           }
         };
 
-        const { error: upsertErr } = await supabase
+        // Non-destructive initialization: Uses insert to avoid wiping existing records if they registered again
+        const { error: insertErr } = await supabase
           .from(SUPABASE_TABLE)
-          .upsert({
+          .insert({
             id: `user_${data.user.id}`,
             state: initialCustomState,
             updated_at: new Date().toISOString()
           });
 
-        if (upsertErr) {
-          console.warn('Metadata setup succeeded, but DB row failed:', upsertErr);
+        if (insertErr) {
+          console.warn('Metadata setup note (might already exist):', insertErr);
         }
 
         // Create matching PIN row in dink_user_pins
