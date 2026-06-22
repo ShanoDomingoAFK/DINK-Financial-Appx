@@ -33,10 +33,19 @@ CREATE TABLE IF NOT EXISTS ${SUPABASE_TABLE} (
   updated_at timestamp with time zone DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 
--- 2. Turn off Row Level Security (RLS) for simple public anonymized access
-ALTER TABLE ${SUPABASE_TABLE} DISABLE ROW LEVEL SECURITY;
+-- 2. Create the table to store 6-digit User secure PINs
+CREATE TABLE IF NOT EXISTS dink_user_pins (
+  email text PRIMARY KEY,
+  pin text NOT NULL,
+  user_id uuid NOT NULL,
+  updated_at timestamp with time zone DEFAULT timezone('utc'::text, now()) NOT NULL
+);
 
--- 3. (Optional) Or if keeping RLS enabled, run this to let anonymous users read & write state
+-- 3. Turn off Row Level Security (RLS) for simple public custom security lookups
+ALTER TABLE ${SUPABASE_TABLE} DISABLE ROW LEVEL SECURITY;
+ALTER TABLE dink_user_pins DISABLE ROW LEVEL SECURITY;
+
+-- 4. (Optional) Or if keeping RLS enabled, run this to let anonymous users read & write state
 -- CREATE POLICY "Allow public read and write" 
 -- ON ${SUPABASE_TABLE} 
 -- FOR ALL 

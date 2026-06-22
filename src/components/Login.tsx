@@ -31,7 +31,10 @@ export const AVATAR_PRESETS = [
 ];
 
 interface LoginProps {
-  onUnlock: (partnerData?: { you: string; partner: string; youPic?: string; partnerPic?: string }) => void;
+  onUnlock: (
+    partnerData?: { you: string; partner: string; youPic?: string; partnerPic?: string },
+    authenticatedUser?: any
+  ) => void;
   partnerNames: {
     you: string;
     partner: string;
@@ -47,11 +50,13 @@ export default function Login({ onUnlock, partnerNames }: LoginProps) {
   // PIN states
   const [pin, setPin] = useState<string>('');
   const [pinError, setPinError] = useState<boolean>(false);
-  const DEFAULT_PIN = '1234';
+  const [pinEmail, setPinEmail] = useState('');
+  const [pinStep, setPinStep] = useState<1 | 2>(1); // 1: Email verify, 2: Keypad entry
 
   // Auth States
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [registerPin, setRegisterPin] = useState('');
   const [p1Name, setP1Name] = useState('Aiden');
   const [p2Name, setP2Name] = useState('Chloe');
   const [p1Pic, setP1Pic] = useState('av_man1');
@@ -70,22 +75,67 @@ export default function Login({ onUnlock, partnerNames }: LoginProps) {
   const [successMsg, setSuccessMsg] = useState('');
 
   // 1. PIN Keypad Handler
-  const handlePinPress = (num: string) => {
-    if (pin.length < 4) {
+  const handlePinPress = async (num: string) => {
+    if (pin.length < 6) {
       const newPin = pin + num;
       setPin(newPin);
       
-      if (newPin.length === 4) {
-        if (newPin === DEFAULT_PIN) {
-          setTimeout(() => {
-            onUnlock();
-          }, 200);
-        } else {
-          setTimeout(() => {
-            setPinError(true);
-            setTimeout(() => setPinError(false), 500);
-            setPin('');
-          }, 150);
+      if (newPin.length === 6) {
+        setLoading(true);
+        setErrorMsg('');
+        try {
+          if (!supabase) {
+            throw new Error('Supabase is not configured.');
+          }
+
+          // Query user pin row
+          const { data, error } = await supabase
+            .from('dink_user_pins')
+            .select('*')
+            .eq('email', pinEmail.trim().toLowerCase())
+            .eq('pin', newPin)
+            .maybeSingle();
+
+          if (error) throw error;
+
+          if (!data) {
+            setTimeout(() => {
+              setPinError(true);
+              setErrorMsg('Incorrect PIN code. Please try again.');
+              setTimeout(() => setPinError(false), 500);
+              setPin('');
+              setLoading(false);
+            }, 150);
+          } else {
+            // Correct PIN! Fetch state to unlock
+            const docId = `user_${data.user_id}`;
+            const { data: stateData, error: stateErr } = await supabase
+              .from(SUPABASE_TABLE)
+              .select('state')
+              .eq('id', docId)
+              .maybeSingle();
+
+            let pData = undefined;
+            if (!stateErr && stateData?.state) {
+              const meta = stateData.state.partnerNames || {};
+              pData = {
+                you: meta.you || 'Aiden',
+                partner: meta.partner || 'Chloe',
+                youPic: meta.youPic || 'av_man1',
+                partnerPic: meta.partnerPic || 'av_woman1'
+              };
+            }
+
+            setSuccessMsg('Account unlocked successfully!');
+            setTimeout(() => {
+              onUnlock(pData, { id: data.user_id, email: data.email });
+              setLoading(false);
+            }, 1000);
+          }
+        } catch (err: any) {
+          setErrorMsg(err.message || 'Verification failed. Make sure your email is registered and pin setup is complete.');
+          setPin('');
+          setLoading(false);
         }
       }
     }
@@ -117,7 +167,7 @@ export default function Login({ onUnlock, partnerNames }: LoginProps) {
         const youPic = meta.partnerNames?.youPic || 'av_man1';
         const partnerPic = meta.partnerNames?.partnerPic || 'av_woman1';
         
-        onUnlock({ you, partner, youPic, partnerPic });
+        onUnlock({ you, partner, youPic, partnerPic }, data.user);
       }
     } catch (err: any) {
       setErrorMsg(err.message || 'Failed to authenticate secure session');
@@ -182,6 +232,20 @@ export default function Login({ onUnlock, partnerNames }: LoginProps) {
           console.warn('Metadata setup succeeded, but DB row failed:', upsertErr);
         }
 
+        // Create matching PIN row in dink_user_pins
+        const { error: pinErr } = await supabase
+          .from('dink_user_pins')
+          .upsert({
+            email: email.trim().toLowerCase(),
+            pin: registerPin,
+            user_id: data.user.id,
+            updated_at: new Date().toISOString()
+          });
+
+        if (pinErr) {
+          console.warn('Could not insert PIN mapping during registration:', pinErr);
+        }
+
         setSuccessMsg('Account registered successfully! Attempting workspace unlock...');
         setTimeout(() => {
           onUnlock({
@@ -189,7 +253,7 @@ export default function Login({ onUnlock, partnerNames }: LoginProps) {
             partner: p2Name.trim(),
             youPic: finalP1Pic,
             partnerPic: finalP2Pic
-          });
+          }, { id: data.user.id, email: data.user.email });
         }, 1500);
       }
     } catch (err: any) {
@@ -235,17 +299,17 @@ export default function Login({ onUnlock, partnerNames }: LoginProps) {
           {/* Authentic Tab Selectors */}
           <div className="flex bg-stone-200/60 p-1 rounded-xl border border-stone-300/40 w-full mt-4">
             <button
-              onClick={() => { setMode('pin'); setErrorMsg(''); }}
+              onClick={() => { setMode('pin'); setErrorMsg(''); setPinStep(1); setPin(''); }}
               className={`flex-1 py-1.5 px-2 rounded-lg text-[10px] font-extrabold uppercase tracking-wide font-display transition ${mode === 'pin' ? 'bg-[#FAF8F5] text-stone-900 shadow-sm' : 'text-stone-500 hover:text-stone-850'}`}
             >
-              PIN Bypass
+              PIN Login
             </button>
             <button
               onClick={() => { setMode('login'); setErrorMsg(''); }}
               disabled={!supabase}
               className={`flex-1 py-1.5 px-2 rounded-lg text-[10px] font-extrabold uppercase tracking-wide font-display transition relative ${mode === 'login' ? 'bg-[#FAF8F5] text-stone-900 shadow-sm' : 'text-stone-500 hover:text-stone-850'} disabled:opacity-50`}
             >
-              Sign In
+              Password Login
               {!supabase && <span className="absolute -top-1 -right-1 flex h-2 w-2"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span><span className="relative inline-flex rounded-full h-2 w-2 bg-amber-500"></span></span>}
             </button>
             <button
@@ -260,7 +324,7 @@ export default function Login({ onUnlock, partnerNames }: LoginProps) {
 
         {/* Global Error Banner */}
         {errorMsg && (
-          <div className="w-full bg-red-100 border border-red-200 rounded-2xl p-3 flex gap-2 text-red-800 text-xs font-semibold">
+          <div className="w-full bg-red-100 border border-red-200 rounded-xl p-3 flex gap-2 text-red-800 text-xs font-semibold">
             <AlertCircle size={15} className="shrink-0 mt-0.5" />
             <div>{errorMsg}</div>
           </div>
@@ -268,107 +332,160 @@ export default function Login({ onUnlock, partnerNames }: LoginProps) {
 
         {/* Success Banner */}
         {successMsg && (
-          <div className="w-full bg-emerald-100 border border-emerald-200 rounded-2xl p-3 flex gap-2 text-emerald-800 text-xs font-semibold">
+          <div className="w-full bg-emerald-100 border border-emerald-200 rounded-xl p-3 flex gap-2 text-emerald-800 text-xs font-semibold">
             <Unlock size={15} className="shrink-0 mt-0.5" />
             <div>{successMsg}</div>
           </div>
         )}
 
-        {/* ─── TAB 1: PIN CODE BYPASS (DEFAULT WORKSPACE) ─── */}
+        {/* ─── TAB 1: SECURE 6-DIGIT PIN LOGIN ─── */}
         {mode === 'pin' && (
-          <div className="w-full flex flex-col items-center space-y-6">
-            <div className="text-center">
-              <p className="text-xs text-stone-500 font-semibold max-w-xs mx-auto">
-                Access local browser workspace securely with sandbox passcodes.
-              </p>
-            </div>
-
-            {/* Profiles preview to personalize the locked state */}
-            <div className="flex items-center gap-3 bg-stone-100/60 border border-stone-200/50 p-3 rounded-2xl w-full">
-              <div className="flex relative shrink-0">
-                {renderPresetPreview(partnerNames.youPic || 'av_man1')}
-                <div className="absolute -right-2 top-0">
-                  {renderPresetPreview(partnerNames.partnerPic || 'av_woman1')}
-                </div>
-              </div>
-              <div className="flex-1 ml-2 text-left text-xs font-semibold text-stone-700">
-                <div className="font-bold text-stone-500 font-display text-[8px] uppercase tracking-wider">Active Household</div>
-                <div className="text-stone-900 font-display font-extrabold text-xs">
-                  {partnerNames.you} &amp; {partnerNames.partner}
-                </div>
-              </div>
-              <div className="text-[#8E8779] text-[9px] font-bold uppercase py-0.5 px-2 bg-[#DDD8CE] rounded-lg flex items-center gap-0.5">
-                <Laptop size={10} /> Local
-              </div>
-            </div>
-
-            {/* PIN Dot Indicators */}
-            <div className="flex flex-col items-center space-y-2 w-full">
-              <motion.div 
-                animate={pinError ? { x: [-10, 10, -10, 10, 0] } : {}}
-                transition={{ duration: 0.4 }}
-                className="flex gap-4 justify-center py-2"
+          <div className="w-full">
+            {pinStep === 1 ? (
+              <form 
+                onSubmit={(e) => { 
+                  e.preventDefault(); 
+                  if (pinEmail.trim()) {
+                    setPinStep(2); 
+                    setErrorMsg('');
+                  } else {
+                    setErrorMsg('Please enter your email address.');
+                  }
+                }} 
+                className="w-full space-y-4"
               >
-                {[0, 1, 2, 3].map((index) => {
-                  const isActive = pin.length > index;
-                  return (
-                    <motion.div
-                      key={index}
-                      animate={isActive ? { scale: [1, 1.25, 1], backgroundColor: '#0D9E80' } : { scale: 1, backgroundColor: '#DDD8CE' }}
-                      className={`w-3.5 h-3.5 rounded-full border border-stone-300 transition duration-150 ${pinError ? 'bg-red-500 border-red-400' : ''}`}
-                    />
-                  );
-                })}
-              </motion.div>
-              <div className="text-[10px] text-stone-500 font-bold">
-                {pin.length === 4 ? 'Unlocking sandbox...' : 'Enter PIN Code (System Default: 1234)'}
-              </div>
-            </div>
+                <div className="text-center">
+                  <p className="text-xs text-stone-500 font-bold uppercase tracking-wider font-display mb-1 text-teal-800">Secure PIN Verification</p>
+                  <p className="text-[11px] text-stone-500 font-semibold max-w-xs mx-auto">
+                    Enter your registered household email address to enable the secure PIN keypad.
+                  </p>
+                </div>
 
-            {/* PIN Numeric Entry Keypad */}
-            <div className="grid grid-cols-3 gap-x-6 gap-y-3 w-full max-w-[260px]">
-              {['1', '2', '3', '4', '5', '6', '7', '8', '9'].map((num) => (
+                <div className="space-y-1.5 text-xs text-stone-700 font-semibold">
+                  <label className="text-[10px] font-extrabold uppercase tracking-wide text-stone-450 font-display flex items-center gap-1">
+                    <Mail size={12} /> Email Address
+                  </label>
+                  <input
+                    type="email"
+                    required
+                    placeholder="name@household.com"
+                    value={pinEmail}
+                    onChange={e => setPinEmail(e.target.value)}
+                    className="w-full text-xs font-semibold border border-stone-300 rounded-xl p-2.5 outline-none focus:border-stone-500 bg-stone-50/50"
+                  />
+                </div>
+
                 <button
-                  key={num}
-                  onClick={() => handlePinPress(num)}
-                  className="w-14 h-14 rounded-full bg-[#FAF8F5] hover:bg-stone-50 text-stone-850 border border-stone-200 flex items-center justify-center font-bold text-md font-display transition active:scale-95 shadow-xs shrink-0"
+                  type="submit"
+                  className="w-full py-2.5 px-4 mt-5 bg-stone-900 hover:bg-stone-850 text-white font-extrabold rounded-xl text-xs uppercase tracking-wide inline-flex items-center justify-center gap-2 transition shadow-sm cursor-pointer"
                 >
-                  {num}
+                  <span>Continue to PIN Keypad</span>
+                  <ChevronRight size={14} />
                 </button>
-              ))}
-              
-              <button
-                onClick={() => setPin('')}
-                className="w-14 h-14 text-stone-400 hover:text-stone-700 text-[10px] uppercase font-bold font-display transition active:scale-95 flex items-center justify-center shrink-0"
-              >
-                Reset
-              </button>
-              
-              <button
-                onClick={() => handlePinPress('0')}
-                className="w-14 h-14 rounded-full bg-[#FAF8F5] hover:bg-stone-50 text-stone-850 border border-stone-200 flex items-center justify-center font-bold text-md font-display transition active:scale-95 shadow-xs shrink-0"
-              >
-                0
-              </button>
-              
-              <button
-                onClick={() => setPin(prev => prev.slice(0, -1))}
-                aria-label="Delete last digit"
-                className="w-14 h-14 text-stone-400 hover:text-stone-700 font-bold font-display transition active:scale-95 flex items-center justify-center shrink-0"
-              >
-                ⌫
-              </button>
-            </div>
+              </form>
+            ) : (
+              <div className="w-full flex flex-col items-center space-y-6">
+                <div className="text-center">
+                  <p className="text-xs text-stone-500 font-bold uppercase tracking-wider font-display mb-1 text-teal-800">Enter PIN Code</p>
+                  <div className="flex items-center justify-center gap-1.5 text-[11px] text-stone-500 font-semibold">
+                    <span>Logging in as: <strong>{pinEmail}</strong></span>
+                    <button
+                      type="button"
+                      onClick={() => { setPinStep(1); setPin(''); }}
+                      className="text-xs text-teal-850 hover:underline font-bold"
+                    >
+                      (change)
+                    </button>
+                  </div>
+                </div>
+
+                {/* PIN Dot Indicators */}
+                <div className="flex flex-col items-center space-y-2 w-full">
+                  <motion.div 
+                    animate={pinError ? { x: [-10, 10, -10, 10, 0] } : {}}
+                    transition={{ duration: 0.4 }}
+                    className="flex gap-4 justify-center py-2"
+                  >
+                    {[0, 1, 2, 3, 4, 5].map((index) => {
+                      const isActive = pin.length > index;
+                      return (
+                        <motion.div
+                          key={index}
+                          animate={isActive ? { scale: [1, 1.25, 1], backgroundColor: '#0D9E80' } : { scale: 1, backgroundColor: '#DDD8CE' }}
+                          className={`w-3.5 h-3.5 rounded-full border border-stone-300 transition duration-150 ${pinError ? 'bg-red-500 border-red-400' : ''}`}
+                        />
+                      );
+                    })}
+                  </motion.div>
+                  <div className="text-[10px] text-stone-500 font-bold">
+                    {pin.length === 6 ? 'Unlocking secure vault...' : 'Enter your 6-digit PIN Code'}
+                  </div>
+                </div>
+
+                {/* PIN Numeric Entry Keypad */}
+                <div className="grid grid-cols-3 gap-x-6 gap-y-3 w-full max-w-[260px]">
+                  {['1', '2', '3', '4', '5', '6', '7', '8', '9'].map((num) => (
+                    <button
+                      key={num}
+                      type="button"
+                      onClick={() => handlePinPress(num)}
+                      disabled={loading}
+                      className="w-14 h-14 rounded-full bg-[#FAF8F5] hover:bg-stone-50 text-stone-850 border border-stone-200 flex items-center justify-center font-bold text-md font-display transition active:scale-95 shadow-xs shrink-0 disabled:opacity-50"
+                    >
+                      {num}
+                    </button>
+                  ))}
+                  
+                  <button
+                    type="button"
+                    onClick={() => setPin('')}
+                    disabled={loading}
+                    className="w-14 h-14 text-stone-400 hover:text-stone-700 text-[10px] uppercase font-bold font-display transition active:scale-95 flex items-center justify-center shrink-0"
+                  >
+                    Reset
+                  </button>
+                  
+                  <button
+                    type="button"
+                    onClick={() => handlePinPress('0')}
+                    disabled={loading}
+                    className="w-14 h-14 rounded-full bg-[#FAF8F5] hover:bg-stone-50 text-stone-850 border border-stone-200 flex items-center justify-center font-bold text-md font-display transition active:scale-95 shadow-xs shrink-0 disabled:opacity-50"
+                  >
+                    0
+                  </button>
+                  
+                  <button
+                    type="button"
+                    onClick={() => setPin(prev => prev.slice(0, -1))}
+                    disabled={loading}
+                    aria-label="Delete last digit"
+                    className="w-14 h-14 text-stone-400 hover:text-stone-700 font-bold font-display transition active:scale-95 flex items-center justify-center shrink-0"
+                  >
+                    ⌫
+                  </button>
+                </div>
+
+                <div className="pt-2 text-center">
+                  <button
+                    type="button"
+                    onClick={() => { setMode('login'); setErrorMsg(''); }}
+                    className="text-xs font-bold text-teal-800 hover:underline"
+                  >
+                    Forgot PIN? Log in with Password instead
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         )}
 
-        {/* ─── TAB 2: SUPABASE SIGN IN ─── */}
+        {/* ─── TAB 2: SUPABASE PASSWORD SIGN IN ─── */}
         {mode === 'login' && (
           <form onSubmit={handleSupabaseLogin} className="w-full space-y-4">
             <div className="text-center">
-              <p className="text-xs text-stone-500 font-bold uppercase tracking-wider font-display mb-1 text-teal-800">Supabase Cloud Sync</p>
+              <p className="text-xs text-stone-500 font-bold uppercase tracking-wider font-display mb-1 text-teal-800">Password Login</p>
               <p className="text-[11px] text-stone-500 font-semibold max-w-xs mx-auto">
-                Sign into your custom household digital records to sync settings live.
+                Sign into your household with your email and password.
               </p>
             </div>
 
@@ -389,7 +506,7 @@ export default function Login({ onUnlock, partnerNames }: LoginProps) {
 
               <div className="space-y-1.5 text-xs text-stone-700 font-semibold">
                 <label className="text-[10px] font-extrabold uppercase tracking-wide text-stone-450 font-display flex items-center gap-1">
-                  <Key size={12} /> PIN Password
+                  <Key size={12} /> Account Password
                 </label>
                 <input
                   type="password"
@@ -415,7 +532,7 @@ export default function Login({ onUnlock, partnerNames }: LoginProps) {
               ) : (
                 <>
                   <Unlock size={14} />
-                  <span>Log In &amp; Synchronize</span>
+                  <span>Log In with Password</span>
                 </>
               )}
             </button>
@@ -439,7 +556,15 @@ export default function Login({ onUnlock, partnerNames }: LoginProps) {
 
             {/* STEP 1: LOGIN DETAILS */}
             {regStep === 1 ? (
-              <form onSubmit={(e) => { e.preventDefault(); setRegStep(2); }} className="space-y-4">
+              <form onSubmit={(e) => { 
+                e.preventDefault(); 
+                if (registerPin.length !== 6 || !/^\d+$/.test(registerPin)) {
+                  setErrorMsg('Please specify a 6-digit numeric PIN code.');
+                  return;
+                }
+                setRegStep(2); 
+                setErrorMsg('');
+              }} className="space-y-4">
                 <div className="space-y-3.5">
                   <div className="space-y-1.5 text-xs text-stone-700 font-semibold">
                     <label className="text-[10px] font-extrabold uppercase tracking-wide text-stone-450 font-display flex items-center gap-1">
@@ -457,7 +582,7 @@ export default function Login({ onUnlock, partnerNames }: LoginProps) {
 
                   <div className="space-y-1.5 text-xs text-stone-700 font-semibold">
                     <label className="text-[10px] font-extrabold uppercase tracking-wide text-stone-450 font-display flex items-center gap-1">
-                      <Key size={12} /> PIN Password
+                      <Key size={12} /> Account Password
                     </label>
                     <input
                       type="password"
@@ -467,6 +592,22 @@ export default function Login({ onUnlock, partnerNames }: LoginProps) {
                       value={password}
                       onChange={e => setPassword(e.target.value)}
                       className="w-full text-xs font-semibold border border-stone-300 rounded-xl p-2.5 outline-none focus:border-stone-500 bg-stone-50/50"
+                    />
+                  </div>
+
+                  <div className="space-y-1.5 text-xs text-stone-700 font-semibold">
+                    <label className="text-[10px] font-extrabold uppercase tracking-wide text-stone-450 font-display flex items-center gap-1">
+                      <Lock size={12} strokeWidth={2.5} className="text-teal-600" /> Appoint 6-Digit Login PIN
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      pattern="\d{6}"
+                      maxLength={6}
+                      placeholder="e.g. 123456"
+                      value={registerPin}
+                      onChange={e => setRegisterPin(e.target.value.replace(/\D/g, '').substring(0, 6))}
+                      className="w-full text-xs font-semibold border border-stone-350 rounded-xl p-2.5 outline-none focus:border-emerald-600 bg-emerald-50/50 tracking-widest text-center text-lg font-mono focus:bg-white"
                     />
                   </div>
                 </div>

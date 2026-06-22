@@ -245,12 +245,12 @@ export default function App() {
     return () => subscription.unsubscribe();
   }, []);
 
-  // Pull on startup
+  // Pull on startup (only if a secure user profile is currently authenticated)
   useEffect(() => {
-    if (isUnlocked && supabase) {
+    if (isUnlocked && supabase && user) {
       fetchFromSupabase(user);
     }
-  }, [isUnlocked]);
+  }, [isUnlocked, user]);
 
   // Debounced auto-save on state mutation
   useEffect(() => {
@@ -663,9 +663,12 @@ export default function App() {
     return (
       <Login 
         partnerNames={state.partnerNames} 
-        onUnlock={(partnerData) => { 
+        onUnlock={(partnerData, authenticatedUser) => { 
           setIsUnlocked(true); 
           sessionStorage.setItem('dink_finance_unlocked', 'true'); 
+          if (authenticatedUser) {
+            setUser(authenticatedUser);
+          }
           if (partnerData) {
             setState(prev => ({
               ...prev,
