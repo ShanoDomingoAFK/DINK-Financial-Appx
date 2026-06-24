@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Cloud, 
   CloudOff, 
@@ -11,7 +11,10 @@ import {
   Check,
   X,
   ArrowUpRight,
-  HelpCircle
+  HelpCircle,
+  Monitor,
+  Smartphone,
+  Sparkles
 } from 'lucide-react';
 import { supabase, SUPABASE_TABLE, SUPABASE_DOC_ID } from '../supabase';
 
@@ -20,9 +23,18 @@ interface SupabaseSyncProps {
   onPull: () => Promise<void>;
   onPush: () => Promise<void>;
   localBackupSize: number;
+  viewMode: 'auto' | 'desktop' | 'mobile';
+  setViewMode: (mode: 'auto' | 'desktop' | 'mobile') => void;
 }
 
-export default function SupabaseSync({ syncStatus, onPull, onPush, localBackupSize }: SupabaseSyncProps) {
+export default function SupabaseSync({ 
+  syncStatus, 
+  onPull, 
+  onPush, 
+  localBackupSize,
+  viewMode,
+  setViewMode
+}: SupabaseSyncProps) {
   const [showModal, setShowModal] = useState(false);
   const [copied, setCopied] = useState(false);
 
@@ -75,144 +87,163 @@ EXECUTE FUNCTION backup_dink_state();`;
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const renderStatus = () => {
-    switch (syncStatus) {
-      case 'unconfigured':
-        return (
-          <div className="bg-amber-100/60 border border-amber-500/10 rounded-xl p-3 text-stone-700">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-1.5 font-bold text-xs text-amber-800">
-                <CloudOff size={14} className="text-amber-600" />
-                <span>Offline Local Mode</span>
-              </div>
-              <button 
-                onClick={() => setShowModal(true)}
-                className="text-amber-700 hover:text-amber-900 transition p-0.5"
-                title="Credential details"
-              >
-                <HelpCircle size={14} />
-              </button>
-            </div>
-            <p className="text-[10px] text-stone-500 mt-1 leading-relaxed font-semibold">
-              Currently persisting your data to local storage. Set up cloud secrets to sync automatically.
-            </p>
-          </div>
-        );
+  const [showPopup, setShowPopup] = useState(false);
+  const [lastSynced, setLastSynced] = useState<string>(() => {
+    return localStorage.getItem('dink_last_synced') || 'Never';
+  });
 
-      case 'relation_missing':
-        return (
-          <div className="bg-red-50 border border-red-500/15 rounded-xl p-3 text-stone-700">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-1.5 font-bold text-xs text-red-800">
-                <AlertCircle size={14} className="text-red-600 animate-pulse" />
-                <span>Table Missing</span>
-              </div>
-              <button 
-                onClick={() => setShowModal(true)}
-                className="text-red-700 hover:text-red-900 transition p-0.5"
-                title="Setup guide"
-              >
-                <HelpCircle size={14} />
-              </button>
-            </div>
-            <p className="text-[10px] text-stone-500 mt-1 leading-relaxed font-semibold">
-              The Supabase table `<code className="bg-red-100 p-0.5 px-1 rounded text-red-800 font-mono text-[9px]">{SUPABASE_TABLE}</code>` does not exist yet.
-            </p>
-            <div className="flex items-center justify-end mt-2 pt-2 border-t border-red-500/5">
-              <button 
-                onClick={onPush}
-                className="text-[9px] bg-red-800 text-white font-extrabold px-2.5 py-1 rounded hover:bg-red-950 transition shadow-sm cursor-pointer"
-              >
-                Retry Setup
-              </button>
-            </div>
-          </div>
-        );
-
-      case 'loading':
-        return (
-          <div className="bg-stone-200/50 border border-stone-300/60 rounded-xl p-3">
-            <div className="flex items-center gap-2 font-bold text-xs text-stone-700">
-              <Loader2 size={13} className="text-stone-500 animate-spin" />
-              <span>Fetching remote state...</span>
-            </div>
-          </div>
-        );
-
-      case 'saving':
-        return (
-          <div className="bg-emerald-50 border border-emerald-500/10 rounded-xl p-3">
-            <div className="flex items-center gap-2 font-bold text-xs text-emerald-800">
-              <Loader2 size={13} className="text-emerald-600 animate-spin" />
-              <span>Saving changes...</span>
-            </div>
-          </div>
-        );
-
-      case 'synced':
-      case 'idle':
-        return (
-          <div className="bg-emerald-100/60 border border-emerald-500/10 rounded-xl p-3 text-stone-700">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-1.5 font-bold text-xs text-emerald-800">
-                <CheckCircle2 size={14} className="text-emerald-600" />
-                <span>Cloud Synced</span>
-              </div>
-              <button 
-                onClick={() => setShowModal(true)}
-                className="text-emerald-700 hover:text-emerald-950 transition p-0.5"
-                title="Cloud database details"
-              >
-                <HelpCircle size={14} />
-              </button>
-            </div>
-            <p className="text-[10px] text-stone-500 mt-1 leading-relaxed font-semibold">
-              Your entries are safely synced live with your cloud database.
-            </p>
-          </div>
-        );
-
-      case 'error':
-      default:
-        return (
-          <div className="bg-red-50 border border-red-500/15 rounded-xl p-3 text-stone-700">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-1.5 font-bold text-xs text-red-800">
-                <AlertCircle size={14} className="text-red-600" />
-                <span>Sync Error</span>
-              </div>
-              <button 
-                onClick={() => setShowModal(true)}
-                className="text-red-700 hover:text-red-950 transition p-0.5"
-                title="Troubleshoot Guide"
-              >
-                <HelpCircle size={14} />
-              </button>
-            </div>
-            <p className="text-[10px] text-stone-500 mt-1 leading-relaxed font-semibold">
-              Failed to sync updates to Supabase. Check connections or secrets.
-            </p>
-            <div className="flex gap-1.5 mt-2 pt-2 border-t border-red-500/5 justify-end">
-              <button 
-                onClick={onPull}
-                className="py-1 px-2.5 bg-red-800 hover:bg-red-900 text-white font-extrabold rounded-lg text-[9px] uppercase tracking-wider inline-flex items-center justify-center gap-1 shadow-sm transition cursor-pointer"
-              >
-                <RefreshCw size={10} /> Retry Pull
-              </button>
-            </div>
-          </div>
-        );
+  useEffect(() => {
+    if (syncStatus === 'synced') {
+      const nowStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+      const fullStr = `${new Date().toLocaleDateString()} ${nowStr}`;
+      localStorage.setItem('dink_last_synced', fullStr);
+      setLastSynced(fullStr);
     }
-  };
+  }, [syncStatus]);
+
+  let dotTitle = 'Disconnected / Sandbox';
+  let syncDetail = 'Using offline local storage';
+  let currentError = '';
+
+  if (syncStatus === 'synced' || syncStatus === 'idle') {
+    dotTitle = 'Cloud Connected';
+    syncDetail = 'Data synced live with Supabase';
+  } else if (syncStatus === 'loading' || syncStatus === 'saving') {
+    dotTitle = 'Syncing...';
+    syncDetail = syncStatus === 'loading' ? 'Downloading remote updates' : 'Uploading local changes';
+  } else if (syncStatus === 'relation_missing') {
+    dotTitle = 'Table Missing';
+    syncDetail = `The table "${SUPABASE_TABLE}" was not found.`;
+    currentError = 'Table missing in database. Open setup guide to create it.';
+  } else if (syncStatus === 'error') {
+    dotTitle = 'Connection Error';
+    syncDetail = 'Failed to communicate with Supabase backend.';
+    currentError = 'Check your connection or API keys inside Secrets.';
+  } else if (syncStatus === 'unconfigured') {
+    dotTitle = 'Offline Local';
+    syncDetail = 'Using local storage persistence';
+    currentError = 'Secrets unconfigured. Read setup guide to connect to Cloud.';
+  }
 
   return (
     <>
-      <div className="space-y-1.5">
-        <div className="flex items-center gap-1.5 text-[10px] font-extrabold uppercase tracking-widest text-[#8E8779] font-display py-1">
-          <Database size={11} className="text-[#8E8779]" />
-          <span>Database Sync</span>
+      <div className="flex items-center justify-between gap-1.5 pt-3.5 border-t border-stone-300/50 mt-3 relative">
+        {/* Cloud Status Dot Indicator */}
+        <div className="relative shrink-0">
+          <button
+            onClick={() => setShowPopup(!showPopup)}
+            className="flex items-center gap-1.5 hover:bg-stone-300/20 p-1.5 rounded-lg transition text-left cursor-pointer"
+            title="Database Connection State"
+          >
+            <span className="relative flex h-2.5 w-2.5">
+              {(syncStatus === 'loading' || syncStatus === 'saving') && (
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+              )}
+              {syncStatus === 'synced' && (
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+              )}
+              <span className={`relative inline-flex rounded-full h-2.5 w-2.5 ${
+                (syncStatus === 'synced' || syncStatus === 'idle') ? 'bg-emerald-500 shadow-md shadow-emerald-500/40' :
+                (syncStatus === 'loading' || syncStatus === 'saving') ? 'bg-amber-500 shadow-md shadow-amber-500/40' :
+                syncStatus === 'unconfigured' ? 'bg-stone-400 shadow-md' : 'bg-red-500 shadow-md shadow-red-500/40'
+              }`}></span>
+            </span>
+            <span className="text-[10px] font-extrabold uppercase tracking-wider text-stone-500 font-display">
+              Cloud Status
+            </span>
+          </button>
+          
+          {/* COMPACT DETAILED POPUP */}
+          {showPopup && (
+            <div className="absolute bottom-full left-0 mb-2 w-64 bg-[#FAF8F5] border border-stone-300 rounded-xl p-3 shadow-xl z-50 animate-in fade-in slide-in-from-bottom-2 duration-150">
+              <div className="flex justify-between items-center pb-1.5 border-b border-stone-200">
+                <span className="text-[9px] font-extrabold text-[#8E8779] uppercase tracking-widest font-display">Sync Diagnostics</span>
+                <button 
+                  onClick={() => setShowPopup(false)} 
+                  className="text-stone-400 hover:text-stone-700 transition"
+                >
+                  <X size={11} />
+                </button>
+              </div>
+              
+              <div className="space-y-2 mt-2 text-xs text-stone-700 font-medium">
+                <div className="flex justify-between items-center">
+                  <span className="text-[9px] text-stone-400 font-extrabold uppercase">State</span>
+                  <span className={`text-[9px] font-extrabold uppercase px-1.5 py-0.5 rounded ${
+                    (syncStatus === 'synced' || syncStatus === 'idle') ? 'bg-emerald-100 text-emerald-800' :
+                    (syncStatus === 'loading' || syncStatus === 'saving') ? 'bg-amber-100 text-amber-800' :
+                    'bg-red-50 text-red-700'
+                  }`}>
+                    {dotTitle}
+                  </span>
+                </div>
+
+                <div className="text-[9px] leading-relaxed text-stone-500 bg-stone-100 p-1.5 rounded font-semibold">
+                  {syncDetail}
+                </div>
+
+                {currentError && (
+                  <div className="text-[9px] font-bold text-red-700 bg-red-50 border border-red-200/50 p-1.5 rounded leading-normal">
+                    ⚠️ {currentError}
+                  </div>
+                )}
+
+                <div className="flex justify-between items-center text-[9px] text-stone-500 font-semibold">
+                  <span>Last Sync:</span>
+                  <span className="font-mono text-stone-700 font-bold">{lastSynced}</span>
+                </div>
+
+                <div className="flex justify-between items-center gap-2 pt-1.5 border-t border-stone-200 text-[10px]">
+                  <button
+                    onClick={() => {
+                      setShowPopup(false);
+                      setShowModal(true);
+                    }}
+                    className="text-[9px] text-[#8E8779] hover:text-stone-950 font-extrabold uppercase tracking-wider flex items-center gap-0.5"
+                  >
+                    Setup Guide <ArrowUpRight size={10} />
+                  </button>
+                  {syncStatus !== 'unconfigured' && (
+                    <button
+                      onClick={async () => {
+                        setShowPopup(false);
+                        await onPull();
+                      }}
+                      className="text-[9px] bg-stone-200 hover:bg-stone-300 text-stone-800 font-bold px-2 py-0.5 rounded transition"
+                    >
+                      Pull Now
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
         </div>
-        {renderStatus()}
+
+        {/* Dynamic Responsive View Override Controls */}
+        <div className="flex items-center gap-0.5 bg-[#E1D9CC]/50 p-0.5 rounded-lg border border-stone-300/40 shadow-inner shrink-0">
+          <button
+            onClick={() => setViewMode('auto')}
+            className={`p-1 px-1.5 rounded-md text-[8px] font-bold uppercase transition flex items-center gap-0.5 cursor-pointer ${viewMode === 'auto' ? 'bg-[#FAF8F5] text-stone-800 shadow-xs font-extrabold border border-stone-300/20' : 'text-stone-500 hover:text-stone-800'}`}
+            title="Automatic layout matching device size"
+          >
+            <Sparkles size={8} /> Auto
+          </button>
+          <button
+            onClick={() => setViewMode('desktop')}
+            className={`p-1 px-1.5 rounded-md text-[8px] font-bold uppercase transition flex items-center gap-0.5 cursor-pointer ${viewMode === 'desktop' ? 'bg-[#FAF8F5] text-stone-800 shadow-xs font-extrabold border border-stone-300/20' : 'text-stone-500 hover:text-stone-800'}`}
+            title="Force widescreen desktop presentation"
+          >
+            <Monitor size={8} /> Desk
+          </button>
+          <button
+            onClick={() => setViewMode('mobile')}
+            className={`p-1 px-1.5 rounded-md text-[8px] font-bold uppercase transition flex items-center gap-0.5 cursor-pointer ${viewMode === 'mobile' ? 'bg-[#FAF8F5] text-stone-800 shadow-xs font-extrabold border border-stone-300/20' : 'text-stone-500 hover:text-stone-800'}`}
+            title="Force native-feeling mobile card presentation"
+          >
+            <Smartphone size={8} /> Mob
+          </button>
+        </div>
       </div>
 
       {showModal && (

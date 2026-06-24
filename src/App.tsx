@@ -131,6 +131,40 @@ export default function App() {
   // Mobile responsive sidebar toggle
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
+  // ─── VIEW MODE & DEVICE TYPE STATES ───
+  const [viewMode, setViewMode] = useState<'auto' | 'desktop' | 'mobile'>(() => {
+    const saved = localStorage.getItem('dink_view_mode');
+    return (saved as any) || 'auto';
+  });
+  const [detectedDevice, setDetectedDevice] = useState<'desktop' | 'tablet' | 'mobile'>('desktop');
+
+  useEffect(() => {
+    localStorage.setItem('dink_view_mode', viewMode);
+  }, [viewMode]);
+
+  useEffect(() => {
+    const handleResize = () => {
+      const width = window.innerWidth;
+      const ua = navigator.userAgent.toLowerCase();
+      const isMobileUA = /mobi|android|iphone|ipad|ipod|blackberry|iemobile|opera mini/.test(ua);
+      
+      if (width < 768 || (isMobileUA && width < 1024 && !/ipad|tablet/.test(ua))) {
+        setDetectedDevice('mobile');
+      } else if ((width >= 768 && width < 1024) || /ipad|tablet/.test(ua)) {
+        setDetectedDevice('tablet');
+      } else {
+        setDetectedDevice('desktop');
+      }
+    };
+    
+    handleResize();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  const activeLayout = viewMode === 'auto' ? detectedDevice : viewMode;
+  const isMobileLayout = activeLayout === 'mobile';
+
   // Sync state mutations to local storage
   useEffect(() => {
     localStorage.setItem('dink_finance_state', JSON.stringify(state));
@@ -683,10 +717,10 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen bg-[#F5F0E8] text-stone-900 flex flex-col md:flex-row font-sans selection:bg-stone-300 selection:text-stone-900">
+    <div className={`min-h-screen bg-[#F5F0E8] text-stone-900 flex font-sans selection:bg-stone-300 selection:text-stone-900 ${isMobileLayout ? 'flex-col' : 'flex-col md:flex-row'}`}>
       
       {/* MOBILE HEADER TOOLBAR */}
-      <div className="md:hidden bg-[#EAE4D8] border-b border-stone-300/70 p-4 sticky top-0 z-40 flex justify-between items-center">
+      <div className={`${isMobileLayout ? 'flex' : 'md:hidden flex'} bg-[#EAE4D8] border-b border-stone-300/70 p-4 sticky top-0 z-40 justify-between items-center w-full`}>
         <div className="flex items-center gap-2">
           <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-600 to-indigo-600 flex items-center justify-center font-bold text-white text-md font-display">
             ₱
@@ -698,7 +732,7 @@ export default function App() {
         </div>
         <button 
           onClick={() => setSidebarOpen(!sidebarOpen)}
-          className="text-stone-700 hover:text-stone-900 transition p-1"
+          className="text-stone-700 hover:text-stone-900 transition p-1 cursor-pointer"
         >
           {sidebarOpen ? <X size={20} /> : <Menu size={20} />}
         </button>
@@ -707,8 +741,9 @@ export default function App() {
       {/* DASHBOARD SIDEBAR (DESKTOP & RESPONSIVE DRAWER) */}
       <aside className={`
         fixed inset-y-0 left-0 z-40 w-72 bg-[#EAE4D8] border-r border-stone-300/80 flex flex-col justify-between py-6 px-4
-        md:sticky md:h-screen md:translate-x-0 md:pointer-events-auto transition-transform duration-300
-        ${sidebarOpen ? 'translate-x-0 pointer-events-auto' : '-translate-x-full pointer-events-none md:pointer-events-auto'}
+        transition-transform duration-300
+        ${isMobileLayout ? '' : 'md:sticky md:h-screen md:translate-x-0 md:pointer-events-auto'}
+        ${sidebarOpen || (!isMobileLayout) ? 'translate-x-0 pointer-events-auto' : '-translate-x-full pointer-events-none'}
       `}>
         <div className="space-y-6">
           {/* Logo Brand */}
@@ -831,6 +866,8 @@ export default function App() {
             onPull={fetchFromSupabase}
             onPush={() => saveToSupabase(state)}
             localBackupSize={JSON.stringify(state).length}
+            viewMode={viewMode}
+            setViewMode={setViewMode}
           />
         </div>
       </aside>
@@ -839,12 +876,12 @@ export default function App() {
       {sidebarOpen && (
         <div 
           onClick={() => setSidebarOpen(false)}
-          className="md:hidden fixed inset-0 bg-stone-900/40 backdrop-blur-xs z-30"
+          className={`${isMobileLayout ? 'block' : 'md:hidden block'} fixed inset-0 bg-stone-900/40 backdrop-blur-xs z-30`}
         ></div>
       )}
 
       {/* WORKSPACE APP CONTAINER */}
-      <main className="flex-1 p-6 md:p-8 max-w-7xl mx-auto w-full overflow-y-auto">
+      <main className={`flex-1 max-w-7xl mx-auto w-full overflow-y-auto ${isMobileLayout ? 'p-4' : 'p-6 md:p-8'}`}>
         <AnimatePresence mode="wait">
           <motion.div
             key={activeTab}
@@ -878,6 +915,7 @@ export default function App() {
                 setActiveModal={setActiveModal}
                 settleCardId={settleCardId}
                 setSettleCardId={setSettleCardId}
+                isMobileLayout={isMobileLayout}
               />
             )}
 

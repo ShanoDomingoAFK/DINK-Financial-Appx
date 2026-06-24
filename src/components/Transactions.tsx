@@ -50,6 +50,7 @@ interface TransactionsProps {
   setActiveModal: (modal: string | null) => void;
   settleCardId?: string;
   setSettleCardId?: (cardId: string) => void;
+  isMobileLayout?: boolean;
 }
 
 export default function Transactions({
@@ -66,7 +67,8 @@ export default function Transactions({
   activeModal,
   setActiveModal,
   settleCardId = '',
-  setSettleCardId
+  setSettleCardId,
+  isMobileLayout = false
 }: TransactionsProps) {
   // ─── FILTER STATES ───
   const [txSearch, setTxSearch] = useState('');
@@ -546,7 +548,7 @@ export default function Transactions({
       </div>
 
       {/* Ledger Table Section */}
-      <div className="bg-stone-50 border border-stone-200 rounded-2xl p-5 shadow-sm overflow-hidden">
+      <div className="bg-stone-50 border border-stone-200 rounded-2xl p-4 md:p-5 shadow-sm overflow-hidden">
         <div className="flex justify-between items-center mb-4">
           <h3 className="text-xs font-extrabold uppercase tracking-widest text-stone-500 font-display">Transactions</h3>
           <span className="text-xs bg-stone-200 text-stone-700 font-bold px-2.5 py-1 rounded-full font-display">
@@ -554,120 +556,231 @@ export default function Transactions({
           </span>
         </div>
 
-        <div className="overflow-x-auto">
-          <div className="min-w-[900px] divide-y divide-stone-200/60">
-            {/* Header row */}
-            <div className="grid grid-cols-12 gap-4 pb-3.5 text-[10px] font-extrabold text-stone-400 uppercase tracking-widest font-display">
-              <div className="col-span-2">Date</div>
-              <div className="col-span-2">Category</div>
-              <div className="col-span-3">Description</div>
-              <div className="col-span-3">Payment Source / Destination</div>
-              <div className="col-span-1.5 text-right">Amount</div>
-              <div className="col-span-0.5 text-right"></div>
-            </div>
+        {isMobileLayout ? (
+          /* MOBILE CARD LAYOUT */
+          <div className="space-y-3.5 pt-1">
+            {filteredRows.length === 0 ? (
+              <div className="text-center text-stone-400 py-12 text-sm font-semibold italic">
+                No matching ledger entries found in the selection criteria.
+              </div>
+            ) : (
+              filteredRows.map(row => {
+                const isIncome = row.rowType === 'income';
+                const isTransfer = row.rowType === 'transfer';
+                const catData = isIncome 
+                  ? { i: '↗', l: row.type === 'salary' ? 'Salary Income' : 'Additional Consulting' } 
+                  : getCategoryInfo(row.cat);
+                  
+                const paymentSource = getPaymentSourceVisual(row, row.rowType);
+                const color = isIncome ? 'text-emerald-700' : isTransfer ? 'text-indigo-700' : 'text-red-700';
 
-            {/* List entries */}
-            <div className="pt-2 divide-y divide-stone-200/50">
-              {filteredRows.length === 0 ? (
-                <div className="text-center text-stone-400 py-12 text-sm font-semibold italic">
-                  No matching ledger entries found in the selection criteria.
-                </div>
-              ) : (
-                filteredRows.map(row => {
-                  const isIncome = row.rowType === 'income';
-                  const isTransfer = row.rowType === 'transfer';
-                  const catData = isIncome 
-                    ? { i: '↗', l: row.type === 'salary' ? 'Salary Income' : 'Additional Consulting' } 
-                    : getCategoryInfo(row.cat);
-                    
-                  const paymentSource = getPaymentSourceVisual(row, row.rowType);
-                  const color = isIncome ? 'text-emerald-700' : isTransfer ? 'text-indigo-700' : 'text-red-700';
-                  const sign = '';
-
-                  return (
-                    <div key={row.id} className="grid grid-cols-12 gap-4 py-3.5 items-center hover:bg-stone-100/40 rounded-xl transition px-1">
-                      <div className="col-span-2 text-xs font-extrabold text-stone-800 font-display">
-                        <div>{formatDisplayDate(row.date)}</div>
-                        <div className="text-[10px] text-stone-400 font-semibold mt-0.5">
-                          {toDateObject(row.date)?.toLocaleDateString('en', { weekday: 'long' })}
-                        </div>
+                return (
+                  <div key={row.id} className="bg-stone-100/30 border border-stone-200/80 hover:border-stone-300 rounded-xl p-3.5 space-y-3 transition">
+                    {/* Header: Date & Amount */}
+                    <div className="flex justify-between items-start gap-2">
+                      <div className="text-[10px] font-extrabold text-stone-400 uppercase tracking-wider font-display">
+                        {formatDisplayDate(row.date)} • {toDateObject(row.date)?.toLocaleDateString('en', { weekday: 'short' })}
                       </div>
+                      <div className={`font-display font-black text-sm shrink-0 ${color}`}>
+                        {formatPeso(row.amount)}
+                      </div>
+                    </div>
 
-                      <div className="col-span-2">
-                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-bold border border-stone-200 bg-stone-50 rounded-lg text-stone-700 selection:truncate max-w-full">
+                    {/* Meta Section: Tags & Details */}
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        {/* Category Badge */}
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-bold border border-stone-200 bg-stone-50 rounded-lg text-stone-700 max-w-full">
                           <span>{catData.i}</span>
                           <span className="truncate">{catData.l}</span>
                         </span>
+
+                        {/* Assignee Badge */}
+                        <span className={`inline-flex items-center px-2 py-0.5 text-[10px] font-bold rounded-lg border ${
+                          row.earner === 'You' ? 'bg-emerald-50 border-emerald-100 text-emerald-700' :
+                          row.earner === 'Partner' ? 'bg-indigo-50 border-indigo-100 text-indigo-700' :
+                          'bg-amber-50 border-amber-100 text-amber-800'
+                        }`}>
+                          {row.earner}
+                        </span>
                       </div>
 
-                      <div className="col-span-3 space-y-0.5 min-w-0">
-                        <div className="text-xs font-extrabold text-stone-900 truncate font-display">{row.desc}</div>
-                        <div className="text-[10px] text-stone-500 font-semibold truncate flex items-center gap-1.5">
-                          <span>Assignee:</span>
-                          <span className={`font-bold ${row.earner === 'You' ? 'text-emerald-700' : row.earner === 'Partner' ? 'text-indigo-700' : 'text-amber-800'}`}>
-                            {row.earner}
-                          </span>
+                      {/* Description */}
+                      <div className="text-xs font-extrabold text-stone-900 leading-snug font-display">
+                        {row.desc}
+                      </div>
+
+                      {/* Account/Source Block with left-side color highlight */}
+                      <div 
+                        className="inline-flex items-center gap-2 border-l-4 rounded-r-lg bg-stone-100/50 p-2 border-stone-200 w-full"
+                        style={{ borderLeftColor: paymentSource.color }}
+                      >
+                        <div className="space-y-0.5 text-[9px] font-bold text-stone-400 font-display leading-none">
+                          <div className="uppercase tracking-wider text-[8px] font-extrabold text-stone-400">{paymentSource.typeLabel}</div>
+                          <div className="text-[11px] text-stone-800 mt-1 font-bold truncate">{paymentSource.name}</div>
                         </div>
-                      </div>
-
-                      <div className="col-span-3 min-w-0">
-                        <div className="inline-flex items-center gap-2 border-l-4 rounded-r-lg bg-stone-100/40 p-1.5 px-2.5 border-stone-200 max-w-full" style={{ borderLeftColor: paymentSource.color }}>
-                          <div className="space-y-0.5 text-[10px] font-bold text-stone-400 font-display leading-none">
-                            <div className="uppercase tracking-wider text-[8px] font-extrabold text-stone-400">{paymentSource.typeLabel}</div>
-                            <div className="text-[12px] text-stone-800 mt-1 font-bold truncate max-w-xs">{paymentSource.name}</div>
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className={`col-span-1.5 text-right font-display font-black text-sm ${color}`}>
-                        {sign}{formatPeso(row.amount)}
-                      </div>
-
-                      <div className="col-span-0.5 flex justify-end gap-1.5 pr-1">
-                        <button
-                          onClick={() => {
-                            setEditForm({
-                              id: row.id,
-                              rowType: row.rowType,
-                              desc: row.desc,
-                              amount: formatPeso(row.amount),
-                              date: row.date,
-                              cat: row.cat || '',
-                              via: row.via || '',
-                              fromId: row.fromCashAccountId || '',
-                              toId: row.toCashAccountId || '',
-                              earner: row.earner || '',
-                              type: row.type as any
-                            });
-                          }}
-                          className="text-stone-400 hover:text-stone-700 p-1 rounded hover:bg-stone-100 transition"
-                          title="Edit Transaction Entry"
-                        >
-                          <Edit3 size={13} />
-                        </button>
-                        <button
-                          onClick={() => {
-                            if (row.rowType === 'income') {
-                              deleteIncome(row.id);
-                            } else if (row.rowType === 'transfer') {
-                              deleteTransfer(row.id);
-                            } else {
-                              deleteExpense(row.id);
-                            }
-                          }}
-                          className="text-stone-400 hover:text-red-700 p-1 rounded hover:bg-red-50 transition"
-                          title="Remove Transaction Entry"
-                        >
-                          <Trash2 size={13} />
-                        </button>
                       </div>
                     </div>
-                  );
-                })
-              )}
+
+                    {/* Actions panel */}
+                    <div className="flex justify-end gap-2 pt-2 border-t border-stone-200/40">
+                      <button
+                        onClick={() => {
+                          setEditForm({
+                            id: row.id,
+                            rowType: row.rowType,
+                            desc: row.desc,
+                            amount: formatPeso(row.amount),
+                            date: row.date,
+                            cat: row.cat || '',
+                            via: row.via || '',
+                            fromId: row.fromCashAccountId || '',
+                            toId: row.toCashAccountId || '',
+                            earner: row.earner || '',
+                            type: row.type as any
+                          });
+                        }}
+                        className="text-stone-500 hover:text-stone-800 px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-wider border border-stone-200 rounded-lg bg-stone-50 transition flex items-center gap-1 cursor-pointer"
+                      >
+                        <Edit3 size={11} /> Edit
+                      </button>
+                      <button
+                        onClick={() => {
+                          if (row.rowType === 'income') {
+                            deleteIncome(row.id);
+                          } else if (row.rowType === 'transfer') {
+                            deleteTransfer(row.id);
+                          } else {
+                            deleteExpense(row.id);
+                          }
+                        }}
+                        className="text-red-600 hover:text-red-700 px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-wider border border-red-100 rounded-lg bg-red-50/50 hover:bg-red-50 transition flex items-center gap-1 cursor-pointer"
+                      >
+                        <Trash2 size={11} /> Remove
+                      </button>
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+        ) : (
+          /* DESKTOP TABLE LAYOUT */
+          <div className="overflow-x-auto">
+            <div className="min-w-[900px] divide-y divide-stone-200/60">
+              {/* Header row */}
+              <div className="grid gap-4 pb-3.5 text-[10px] font-extrabold text-stone-400 uppercase tracking-widest font-display" style={{ gridTemplateColumns: 'minmax(90px, 1fr) minmax(120px, 1fr) minmax(150px, 1.5fr) minmax(150px, 1.5fr) minmax(110px, max-content) 50px' }}>
+                <div>Date</div>
+                <div>Category</div>
+                <div>Description</div>
+                <div>Payment Source / Destination</div>
+                <div className="text-right">Amount</div>
+                <div className="text-right"></div>
+              </div>
+
+              {/* List entries */}
+              <div className="pt-2 divide-y divide-stone-200/50">
+                {filteredRows.length === 0 ? (
+                  <div className="text-center text-stone-400 py-12 text-sm font-semibold italic">
+                    No matching ledger entries found in the selection criteria.
+                  </div>
+                ) : (
+                  filteredRows.map(row => {
+                    const isIncome = row.rowType === 'income';
+                    const isTransfer = row.rowType === 'transfer';
+                    const catData = isIncome 
+                      ? { i: '↗', l: row.type === 'salary' ? 'Salary Income' : 'Additional Consulting' } 
+                      : getCategoryInfo(row.cat);
+                      
+                    const paymentSource = getPaymentSourceVisual(row, row.rowType);
+                    const color = isIncome ? 'text-emerald-700' : isTransfer ? 'text-indigo-700' : 'text-red-700';
+                    const sign = '';
+
+                    return (
+                      <div key={row.id} className="grid gap-4 py-3.5 items-center hover:bg-stone-100/40 rounded-xl transition px-1" style={{ gridTemplateColumns: 'minmax(90px, 1fr) minmax(120px, 1fr) minmax(150px, 1.5fr) minmax(150px, 1.5fr) minmax(110px, max-content) 50px' }}>
+                        <div className="text-xs font-extrabold text-stone-800 font-display">
+                          <div>{formatDisplayDate(row.date)}</div>
+                          <div className="text-[10px] text-stone-400 font-semibold mt-0.5">
+                            {toDateObject(row.date)?.toLocaleDateString('en', { weekday: 'long' })}
+                          </div>
+                        </div>
+
+                        <div>
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-bold border border-stone-200 bg-stone-50 rounded-lg text-stone-700 selection:truncate max-w-full">
+                            <span>{catData.i}</span>
+                            <span className="truncate">{catData.l}</span>
+                          </span>
+                        </div>
+
+                        <div className="space-y-0.5 min-w-0">
+                          <div className="text-xs font-extrabold text-stone-900 truncate font-display">{row.desc}</div>
+                          <div className="text-[10px] text-stone-500 font-semibold truncate flex items-center gap-1.5">
+                            <span>Assignee:</span>
+                            <span className={`font-bold ${row.earner === 'You' ? 'text-emerald-700' : row.earner === 'Partner' ? 'text-indigo-700' : 'text-amber-800'}`}>
+                              {row.earner}
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="min-w-0">
+                          <div className="inline-flex items-center gap-2 border-l-4 rounded-r-lg bg-stone-100/40 p-1.5 px-2.5 border-stone-200 max-w-full" style={{ borderLeftColor: paymentSource.color }}>
+                            <div className="space-y-0.5 text-[10px] font-bold text-stone-400 font-display leading-none min-w-0">
+                              <div className="uppercase tracking-wider text-[8px] font-extrabold text-stone-400 truncate">{paymentSource.typeLabel}</div>
+                              <div className="text-[12px] text-stone-800 mt-1 font-bold truncate max-w-xs">{paymentSource.name}</div>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className={`text-right font-display font-black text-sm whitespace-nowrap ${color}`}>
+                          {sign}{formatPeso(row.amount)}
+                        </div>
+
+                        <div className="flex justify-end gap-1.5 pr-1">
+                          <button
+                            onClick={() => {
+                              setEditForm({
+                                id: row.id,
+                                rowType: row.rowType,
+                                desc: row.desc,
+                                amount: formatPeso(row.amount),
+                                date: row.date,
+                                cat: row.cat || '',
+                                via: row.via || '',
+                                fromId: row.fromCashAccountId || '',
+                                toId: row.toCashAccountId || '',
+                                earner: row.earner || '',
+                                type: row.type as any
+                              });
+                            }}
+                            className="text-stone-400 hover:text-stone-700 p-1 rounded hover:bg-stone-100 transition"
+                            title="Edit Transaction Entry"
+                          >
+                            <Edit3 size={13} />
+                          </button>
+                          <button
+                            onClick={() => {
+                              if (row.rowType === 'income') {
+                                deleteIncome(row.id);
+                              } else if (row.rowType === 'transfer') {
+                                deleteTransfer(row.id);
+                              } else {
+                                deleteExpense(row.id);
+                              }
+                            }}
+                            className="text-stone-400 hover:text-red-700 p-1 rounded hover:bg-red-50 transition"
+                            title="Remove Transaction Entry"
+                          >
+                            <Trash2 size={13} />
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
             </div>
           </div>
-        </div>
+        )}
       </div>
 
       {/* ─── MODAL DIALOG FLOWS ─── */}
