@@ -252,7 +252,7 @@ export default function PalengkePlan({ state, updateRecipes }: PalengkePlanProps
             onClick={() => setRecipeModal({ name: '', emoji: '🍲', description: '', ingredients: [] })}
             className="bg-stone-900 text-stone-50 hover:bg-stone-850 text-xs font-bold px-4 py-2.5 rounded-xl shadow-sm transition font-display inline-flex items-center gap-1.5"
           >
-            <Plus size={14} /> + New Custom Ulam
+            <Plus size={14} /> Recipe
           </button>
           
           <button 

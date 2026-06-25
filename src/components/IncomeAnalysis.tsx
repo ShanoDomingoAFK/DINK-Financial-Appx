@@ -130,7 +130,7 @@ export default function IncomeAnalysis({
     <div className="space-y-6">
       {/* Upper toolbar */}
       <div>
-        <h1 className="text-2xl font-black font-display text-stone-900 tracking-tight">Structured Income Analysis</h1>
+        <h1 className="text-2xl font-black font-display text-stone-900 tracking-tight">Income Analysis</h1>
         <p className="text-stone-500 font-semibold text-xs mt-0.5">Model gross, manual progressive deductions (BIR tax / SSS / Philhealth), and secondary Consulting Portfolios</p>
       </div>
 
@@ -150,7 +150,7 @@ export default function IncomeAnalysis({
           <div className="space-y-4">
             {/* Base Salary Input */}
             <div className="flex justify-between items-center text-xs font-semibold text-stone-700">
-              <span className="font-display">Base Structural Salary</span>
+              <span className="font-display">Gross Salary</span>
               <div className="flex items-center gap-1.5">
                 <span className="text-stone-400 font-bold">₱</span>
                 <AmountInput 
@@ -163,7 +163,7 @@ export default function IncomeAnalysis({
 
             {/* Consulting extra flows display */}
             <div className="flex justify-between items-center text-xs font-semibold text-stone-500">
-              <span className="font-display">FREELANCE CONSULTING ADDITIONS</span>
+              <span className="font-display">Additonal Income</span>
               <span className="font-bold font-display text-emerald-700">+{formatPeso(aidenMetrics.additionalVal)}</span>
             </div>
 
@@ -233,7 +233,7 @@ export default function IncomeAnalysis({
           <div className="space-y-4">
             {/* Base Salary Input */}
             <div className="flex justify-between items-center text-xs font-semibold text-stone-700">
-              <span className="font-display">Base Structural Salary</span>
+              <span className="font-display">Gross Salary</span>
               <div className="flex items-center gap-1.5">
                 <span className="text-stone-400 font-bold">₱</span>
                 <AmountInput 
@@ -246,7 +246,7 @@ export default function IncomeAnalysis({
 
             {/* Consulting extra flows display */}
             <div className="flex justify-between items-center text-xs font-semibold text-stone-500">
-              <span className="font-display">FREELANCE CONSULTING ADDITIONS</span>
+              <span className="font-display">Additional Income</span>
               <span className="font-bold font-display text-emerald-700">+{formatPeso(chloeMetrics.additionalVal)}</span>
             </div>
 
